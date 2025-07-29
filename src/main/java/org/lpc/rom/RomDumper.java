@@ -1,4 +1,4 @@
-package org.lpc.visual;
+package org.lpc.rom;
 
 import org.lpc.assembler.Assembler;
 

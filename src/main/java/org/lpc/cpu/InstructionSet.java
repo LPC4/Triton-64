@@ -1,6 +1,6 @@
 package org.lpc.cpu;
 
-public class InstructionSet {
+public final class InstructionSet {
     /*—— Instruction Set Architecture —————————*/
 
     // Special operations
