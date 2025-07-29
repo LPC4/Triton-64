@@ -1,0 +1,10 @@
+LDI64 s1, 0xDEADBEEF
+JMP .end
+NOP
+NOP
+NOP
+NOP
+NOP
+.end:
+LDI s2, 10
+HLT

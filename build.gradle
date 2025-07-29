@@ -1,0 +1,62 @@
+plugins {
+    id 'java'
+    id 'application'
+}
+
+group = 'org.lpc'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+def osName = System.getProperty("os.name").toLowerCase()
+def platform =
+        osName.contains("win") ? "win" :
+                osName.contains("mac") ? "mac" :
+                        osName.contains("linux") ? "linux" : "win"
+
+def javaFxVersion = '21.0.2'
+
+dependencies {
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.32'
+    annotationProcessor 'org.projectlombok:lombok:1.18.32'
+
+    // Guava (Optional)
+    implementation 'com.google.guava:guava:33.1.0-jre'
+
+    // Logging
+    implementation 'org.slf4j:slf4j-api:2.0.12'
+    runtimeOnly 'org.slf4j:slf4j-simple:2.0.12'
+
+    // JSON (optional)
+    implementation 'com.google.code.gson:gson:2.11.0'
+
+    // JUnit
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+
+    // JavaFX modules for current platform
+    implementation "org.openjfx:javafx-base:$javaFxVersion:$platform"
+    implementation "org.openjfx:javafx-controls:$javaFxVersion:$platform"
+    implementation "org.openjfx:javafx-graphics:$javaFxVersion:$platform"
+    implementation "org.openjfx:javafx-fxml:$javaFxVersion:$platform"
+}
+
+application {
+    mainClass = 'org.lpc.Main'
+}
+
+run {
+    // Build the module path from runtimeClasspath
+    doFirst {
+        jvmArgs = [
+                '--module-path', classpath.asPath,
+                '--add-modules', 'javafx.controls,javafx.fxml'
+        ]
+    }
+}
+
+test {
+    useJUnitPlatform()
+}
