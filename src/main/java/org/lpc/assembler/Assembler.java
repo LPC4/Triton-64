@@ -26,11 +26,6 @@ public class Assembler {
         // Expand pseudo-instructions using resolved symbols
         List<String> expanded = expander.expand(lines, symbolTable);
 
-        System.out.println("Expanded instructions:");
-        for (String line : expanded) {
-            System.out.println(line);
-        }
-
         // Second pass: Assemble expanded instructions
         return assembleExpanded(expanded);
     }
@@ -71,7 +66,8 @@ public class Assembler {
             InstructionInfo.OperandType[] types = InstructionInfo.OPERAND_TYPES.get(mnemonic);
             Parser.validateOperandCount(operands, types.length, mnemonic);
 
-            int dest = 0, src = 0, src2 = 0, imm = 0;
+            int dest = 0, src = 0, src2 = 0;
+            int imm = 0;
             for (int i = 0; i < types.length; i++) {
                 String operand = operands[i].trim();
                 switch (types[i]) {
@@ -82,7 +78,7 @@ public class Assembler {
                         else src2 = reg;
                         break;
                     case IMMEDIATE:
-                        imm = Parser.parseImmediate(operand);
+                        imm = Math.toIntExact(Parser.parseLongImmediate(operand));
                         if ("LDI".equals(mnemonic)) validateLDI(imm);
                         break;
                 }

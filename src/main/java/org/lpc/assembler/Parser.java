@@ -3,22 +3,6 @@ package org.lpc.assembler;
 import org.lpc.cpu.RegisterInfo;
 
 public class Parser {
-    // Remove symbolTable parameter from parsing methods
-    public static int parseImmediate(String immStr) {
-        String trimmed = immStr.trim();
-        try {
-            if (trimmed.startsWith("0x")) {
-                return Integer.parseInt(trimmed.substring(2), 16);
-            } else if (trimmed.startsWith("0b")) {
-                return Integer.parseInt(trimmed.substring(2), 2);
-            } else {
-                return Integer.parseInt(trimmed);
-            }
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Invalid immediate: " + immStr);
-        }
-    }
-
     public static long parseLongImmediate(String immStr) {
         String trimmed = immStr.trim();
         try {
@@ -37,7 +21,7 @@ public class Parser {
     // Update isImmediate to use new parsing logic
     public static boolean isImmediate(String operand) {
         try {
-            parseImmediate(operand);
+            parseLongImmediate(operand);
             return true;
         } catch (IllegalArgumentException e) {
             return false;

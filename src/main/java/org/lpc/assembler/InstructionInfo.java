@@ -11,8 +11,7 @@ import java.util.Map;
 public class InstructionInfo {
     public enum OperandType {
         REGISTER,
-        IMMEDIATE,
-        LABEL  // For jump instructions that can accept labels
+        IMMEDIATE
     }
 
     public static final Map<String, Integer> OPCODES = Map.ofEntries(
