@@ -11,8 +11,13 @@ public class RomDumper {
     public static void main(String[] args) throws Exception {
         File input = new File(Objects.requireNonNull(RomDumper.class.getResource("/rom.asm")).toURI());
         File output = new File("src/main/java/org/lpc/rom/ROMData.java");
+
         if (!output.getParentFile().exists()) {
-            output.getParentFile().mkdirs();
+            if (output.getParentFile().mkdirs()) {
+                System.out.println("Created directory: " + output.getParentFile().getAbsolutePath());
+            } else {
+                throw new RuntimeException("Failed to create directory: " + output.getParentFile().getAbsolutePath());
+            }
         }
 
         String source = new String(Files.readAllBytes(input.toPath()));

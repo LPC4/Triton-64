@@ -1,10 +1,9 @@
 package org.lpc.visual;
 
-import org.lpc.Globals;
 import org.lpc.memory.Memory;
 import org.lpc.cpu.InstructionSet;
 
-import static org.lpc.Globals.REG_NAMES;
+import static org.lpc.cpu.RegisterInfo.REG_NAMES;
 import static org.lpc.memory.MemoryMap.*;
 
 /**

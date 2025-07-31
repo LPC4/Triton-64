@@ -1,6 +1,8 @@
 package org.lpc.assembler;
 
 import org.lpc.cpu.InstructionSet;
+
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -60,4 +62,30 @@ public class InstructionInfo {
             Map.entry("ST", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("LDI", new OperandType[]{OperandType.REGISTER, OperandType.IMMEDIATE})
     );
+
+    public static final Map<Integer, String> OPCODE_NAMES = new HashMap<>() {
+        {
+            put(0x00, "NOP");
+            put(0x01, "HLT");
+            put(0x10, "MOV");
+            put(0x11, "NOT");
+            put(0x12, "NEG");
+            put(0x20, "ADD");
+            put(0x21, "SUB");
+            put(0x22, "MUL");
+            put(0x23, "DIV");
+            put(0x24, "AND");
+            put(0x25, "OR");
+            put(0x26, "XOR");
+            put(0x27, "SHL");
+            put(0x28, "SHR");
+            put(0x29, "SAR");
+            put(0x30, "JMP");
+            put(0x31, "JZ");
+            put(0x32, "JNZ");
+            put(0x40, "LD");
+            put(0x41, "ST");
+            put(0x50, "LDI");
+        }
+    };
 }

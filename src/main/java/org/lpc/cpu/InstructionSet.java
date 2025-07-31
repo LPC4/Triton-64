@@ -39,11 +39,11 @@ public final class InstructionSet {
 
     /*—— Instruction Format —————————*/
 
-    public static final int OPCODE_BITS = 7;            // Bits for opcode
-    public static final int DEST_BITS = 5;              // Bits for destination register
-    public static final int SRC_BITS = 5;               // Bits for source register 1
-    public static final int SRC2_BITS = 5;              // Bits for source register 2
-    public static final int IMM_BITS = 10;              // Bits for immediate (-512 to 511)
+    public static final int OPCODE_BITS = 7;  // Bits for opcode
+    public static final int DEST_BITS   = 5;  // Bits for destination register
+    public static final int SRC_BITS    = 5;  // Bits for source register 1
+    public static final int SRC2_BITS   = 5;  // Bits for source register 2
+    public static final int IMM_BITS    = 10; // Bits for immediate (-512 to 511)
 
 
     /*—— Instruction Encoding —————————*/

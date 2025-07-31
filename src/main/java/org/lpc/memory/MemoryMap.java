@@ -1,6 +1,11 @@
 package org.lpc.memory;
 
-public class MemoryMap {
+/**
+ * Memory region definitions for the LPC system.
+ * Defines the layout of ROM, RAM, MMIO, and framebuffer regions.
+ */
+public final class MemoryMap {
+    // Memory region bases and sizes
     public static final long ROM_BASE = 0x0000_0000_0000_0000L;
     public static final long ROM_SIZE = 128 * 1024;                      // 128 KB ROM
 
@@ -15,6 +20,39 @@ public class MemoryMap {
 
     // The stack and heap share a combined space in RAM
     public static final long STACK_HEAP_SIZE = 128L * 1024 * 1024;       // 128 MB stack+heap
-    public static final long STACK_BASE = RAM_BASE + RAM_SIZE;           // stack grows downward
-    public static final long HEAP_BASE = STACK_BASE - STACK_HEAP_SIZE;   // heap grows upward
+    public static final long STACK_BASE = RAM_BASE + RAM_SIZE;           // Stack grows downward
+    public static final long HEAP_BASE = STACK_BASE - STACK_HEAP_SIZE;   // Heap grows upward
+
+    // Total memory size
+    public static final long TOTAL_SIZE = ROM_SIZE + RAM_SIZE + MMIO_SIZE + FB_SIZE;
+
+    // Memory region bounds for validation
+    public static final long ROM_END = ROM_BASE + ROM_SIZE;
+    public static final long RAM_END = RAM_BASE + RAM_SIZE;
+    public static final long MMIO_END = MMIO_BASE + MMIO_SIZE;
+    public static final long FB_END = FB_BASE + FB_SIZE;
+
+    private MemoryMap() {
+        // Prevent instantiation
+    }
+
+    public static boolean isRomAddress(long address) {
+        return address >= ROM_BASE && address < ROM_END;
+    }
+
+    public static boolean isRamAddress(long address) {
+        return address >= RAM_BASE && address < RAM_END;
+    }
+
+    public static boolean isMmioAddress(long address) {
+        return address >= MMIO_BASE && address < MMIO_END;
+    }
+
+    public static boolean isFramebufferAddress(long address) {
+        return address >= FB_BASE && address < FB_END;
+    }
+
+    public static boolean isValidAddress(long address) {
+        return address >= 0 && address < TOTAL_SIZE;
+    }
 }

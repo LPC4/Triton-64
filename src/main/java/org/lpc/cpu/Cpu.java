@@ -2,12 +2,12 @@ package org.lpc.cpu;
 
 import lombok.Getter;
 import lombok.Setter;
-import org.lpc.Globals;
 import org.lpc.memory.Memory;
 import org.lpc.rom.ROMData;
 
 import java.util.Arrays;
 
+import static org.lpc.assembler.InstructionInfo.OPCODE_NAMES;
 import static org.lpc.memory.MemoryMap.ROM_SIZE;
 
 @Getter
@@ -20,7 +20,6 @@ public class Cpu {
     private boolean isHalted;
     private final Memory memory;
 
-    /** Constructor now requires a Memory object */
     public Cpu(Memory memory) {
         this.memory = memory;
         registers = new long[REGISTER_COUNT];
@@ -29,7 +28,6 @@ public class Cpu {
         initROM(memory);
     }
 
-    /** Get the value of a register; register 0 always returns 0 */
     public long getRegister(int index) {
         if (index < 0 || index >= registers.length) {
             throw new IllegalArgumentException("Invalid register index: " + index);
@@ -37,7 +35,6 @@ public class Cpu {
         return registers[index];
     }
 
-    /** Set the value of a register; cannot set register 0 */
     public void setRegister(int index, long value) {
         if (index < 0 || index >= registers.length) {
             throw new IllegalArgumentException("Invalid register index: " + index);
@@ -45,7 +42,6 @@ public class Cpu {
         registers[index] = value;
     }
 
-    /** Reset the CPU state */
     public void reset() {
         Arrays.fill(registers, 0);
         programCounter = 0;
@@ -55,8 +51,9 @@ public class Cpu {
     /** Execute instructions from memory until halted */
     public void run() {
         int nopCounter = 0;
+        final int maxNopCount = 16; // Maximum NOP count before halting
 
-        while (!isHalted && nopCounter < 10) {
+        while (!isHalted && nopCounter < maxNopCount) {
             // Fetch 32-bit instruction from memory
             int instr = memory.readInt(programCounter);
             // Increment program counter (instructions are 4 bytes)
@@ -73,8 +70,6 @@ public class Cpu {
             } else {
                 nopCounter = 0; // Reset NOP counter on any other instruction
             }
-
-            System.out.printf("Executing: %s (PC: 0x%016X)%n", Globals.OPCODE_NAMES.get(opcode), programCounter - 4);
 
             executeInstruction(opcode, dest, src, src2, imm);
         }
@@ -152,15 +147,13 @@ public class Cpu {
                 break;
 
             case InstructionSet.OP_JZ:
-                if (getRegister(src) == 0) {
+                if (getRegister(src) == 0)
                     programCounter = getRegister(dest);
-                }
                 break;
 
             case InstructionSet.OP_JNZ:
-                if (getRegister(src) != 0) {
+                if (getRegister(src) != 0)
                     programCounter = getRegister(dest);
-                }
                 break;
 
             case InstructionSet.OP_LD:
@@ -185,13 +178,12 @@ public class Cpu {
     }
 
     private void initROM(Memory memory) {
-        byte[] mem = memory.memory;
         byte[] romBytes = ROMData.ROM;
 
         if (romBytes.length > ROM_SIZE)
             throw new IllegalArgumentException("ROM data too large");
 
-        System.arraycopy(romBytes, 0, mem, 0, romBytes.length);
+        memory.initializeROM(romBytes);
     }
 
     public void printRegisters() {
@@ -203,7 +195,7 @@ public class Cpu {
             for (int col = 0; col < 2; col++) {
                 int regIndex = row + (col * 16);
                 if (regIndex < registers.length) {
-                    String regName = Globals.REG_NAMES[regIndex];
+                    String regName = RegisterInfo.REG_NAMES[regIndex];
                     long value = registers[regIndex];
                     System.out.printf("%-3s: %20d (0x%016X)  ", regName, value, value);
                 }

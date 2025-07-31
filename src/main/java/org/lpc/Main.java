@@ -9,117 +9,149 @@ import org.lpc.memory.Memory;
 import org.lpc.visual.CpuViewer;
 import org.lpc.visual.MemoryViewer;
 
-import java.io.File;
-import java.net.URL;
+import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-import static org.lpc.memory.MemoryMap.*;
+import static org.lpc.memory.MemoryMap.RAM_BASE;
+import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
 public class Main extends Application {
+    private static final String PROGRAM_FILE = "/test.asm";
+    private static final String APP_NAME = "Triton-64 Virtual Machine";
+    private static final int CPU_THREAD_POOL_SIZE = 1;
 
+    private final ExecutorService cpuExecutor = Executors.newFixedThreadPool(CPU_THREAD_POOL_SIZE);
     private Memory memory;
     private Cpu cpu;
     private MemoryViewer memoryViewer;
     private CpuViewer cpuViewer;
 
-    public Main() {
-        System.out.println("Triton-64 Virtual Machine");
+    @Override
+    public void init() {
+        System.out.println(APP_NAME + " - Initializing...");
+        this.memory = new Memory();
+        this.cpu = new Cpu(memory);
+        initializeDebugViews();
     }
 
     @Override
     public void start(Stage primaryStage) {
-        // Initialize the system
-        memory = new Memory();
-        cpu = new Cpu(memory);
-        memoryViewer = new MemoryViewer(cpu);
-        cpuViewer = new CpuViewer(cpu);
+        try {
+            loadProgram();
+            launchDebugViews();
+            startCpuExecution();
+        } catch (Exception e) {
+            handleStartupError(e);
+        }
+    }
 
-        // Load program into RAM
-        loadProgramToRAM(memory, new Assembler());
+    @Override
+    public void stop() {
+        System.out.println(APP_NAME + " - Shutting down...");
+        cpuExecutor.shutdownNow();
+        Platform.exit();
+    }
 
-        // Start the memory viewer GUI
-        memoryViewer.start(new Stage());
-        cpuViewer.start(new Stage());
+    private void initializeDebugViews() {
+        this.memoryViewer = new MemoryViewer(cpu);
+        this.cpuViewer = new CpuViewer(cpu);
+    }
 
-        // Run CPU in background thread to avoid blocking JavaFX
-        CompletableFuture.runAsync(() -> {
-            try {
-                System.out.println("Starting CPU execution...");
-                cpu.run();
-
-                // Print final state after execution
-                Platform.runLater(() -> {
-                    System.out.println("\n=== CPU Execution Complete ===");
-                    cpu.printRegisters();
-                });
-
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    System.err.println("CPU execution error: " + e.getMessage());
-                    e.printStackTrace();
-                });
-            }
+    private void launchDebugViews() {
+        Platform.runLater(() -> {
+            memoryViewer.start(new Stage());
+            cpuViewer.start(new Stage());
         });
     }
 
-    private void loadProgramToRAM(Memory memory, Assembler assembler) {
-        String sourceCode = getSourceFromFile("/test.asm");
-        int[] program = assembler.assemble(sourceCode);
+    private void loadProgram() throws IOException {
+        String sourceCode = readProgramFile();
+        int[] program = new Assembler().assemble(sourceCode);
+        validateProgramSize(program.length);
+        writeProgramToMemory(program);
+    }
 
-        if (program.length >= RAM_SIZE / 4) {
-            throw new IllegalArgumentException("Program too large for RAM");
+    private String readProgramFile() throws IOException {
+        try {
+            return Files.readString(Path.of(getClass().getResource(PROGRAM_FILE).toURI()));
+        } catch (Exception e) {
+            throw new IOException("Failed to read program file: " + PROGRAM_FILE, e);
         }
+    }
 
-        System.out.println("Loading program to RAM (" + program.length + " instructions)");
+    private void validateProgramSize(int programLength) {
+        if (programLength >= RAM_SIZE / 4) {
+            throw new IllegalArgumentException(
+                    String.format("Program too large for RAM (max %d instructions)", RAM_SIZE / 4)
+            );
+        }
+    }
+
+    private void writeProgramToMemory(int[] program) {
+        System.out.printf("Loading %d instructions to RAM at 0x%016X%n",
+                program.length, RAM_BASE);
+
         for (int i = 0; i < program.length; i++) {
             memory.writeInt(RAM_BASE + i * 4L, program[i]);
         }
-
-        System.out.println("Program loaded at address: 0x" + Long.toHexString(RAM_BASE));
     }
 
-    @SuppressWarnings("SameParameterValue")
-    private String getSourceFromFile(String filename) {
-        URL resource = getClass().getResource(filename);
-        if (resource == null) {
-            throw new IllegalArgumentException("Source file not found: " + filename);
-        }
-        File file = new File(resource.getFile());
-        if (!file.exists() || !file.isFile()) {
-            throw new IllegalArgumentException("Invalid source file: " + filename);
-        }
-        try {
-            return new String(Files.readAllBytes(file.toPath()));
-        } catch (java.io.IOException e) {
-            throw new RuntimeException("Error reading source file: " + filename, e);
-        }
+    private void startCpuExecution() {
+        CompletableFuture.runAsync(() -> {
+            try {
+                System.out.println("CPU execution started");
+                cpu.run();
+                Platform.runLater(this::printFinalState);
+            } catch (Exception e) {
+                Platform.runLater(() -> handleExecutionError(e));
+            }
+        }, cpuExecutor);
+    }
+
+    private void printFinalState() {
+        System.out.println("\n=== Execution Complete ===");
+        cpu.printRegisters();
+    }
+
+    private void handleStartupError(Throwable t) {
+        System.err.println("Fatal startup error:");
+        t.printStackTrace();
+        Platform.exit();
+    }
+
+    private void handleExecutionError(Throwable t) {
+        System.err.println("CPU execution error:");
+        t.printStackTrace();
     }
 
     public static void main(String[] args) {
-        // Check if JavaFX is available and launch GUI
         try {
-            System.out.println("Launching Memory Viewer GUI...");
+            System.out.println("Launching " + APP_NAME);
             launch(args);
         } catch (Exception e) {
-            // Fallback to console-only mode if JavaFX is not available
-            System.err.println("JavaFX not available, running in console mode: " + e.getMessage());
-            runConsoleMode();
+            System.err.println("GUI launch failed, falling back to console mode");
+            new ConsoleRunner().run();
         }
     }
 
-    /**
-     * Fallback method to run without GUI if JavaFX is not available
-     */
-    private static void runConsoleMode() {
-        System.out.println("Running in console mode...");
-        Memory memory = new Memory();
-        Cpu cpu = new Cpu(memory);
+    private static class ConsoleRunner {
+        public void run() {
+            try {
+                Memory memory = new Memory();
+                Cpu cpu = new Cpu(memory);
+                Main main = new Main();
 
-        Main main = new Main();
-        main.loadProgramToRAM(memory, new Assembler());
-
-        cpu.run();
-        cpu.printRegisters();
+                main.loadProgram();
+                cpu.run();
+                cpu.printRegisters();
+            } catch (Exception e) {
+                System.err.println("Console mode failed:");
+                e.printStackTrace();
+            }
+        }
     }
 }

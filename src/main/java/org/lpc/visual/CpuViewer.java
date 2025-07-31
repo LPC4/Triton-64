@@ -10,13 +10,14 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 import org.lpc.cpu.Cpu;
+import org.lpc.cpu.RegisterInfo;
 import org.lpc.visual.style.Colors;
 import org.lpc.visual.style.Fonts;
 import org.lpc.visual.style.Styles;
 
 public class CpuViewer {
     private final Cpu cpu;
-    private final Label[] registerLabels = new Label[32]; // Adjusted for 32 registers
+    private final Label[] registerLabels = new Label[32];
     private final Label programCounterLabel = Styles.valueLabel();
     private long lastUpdate = 0;
 
@@ -64,8 +65,8 @@ public class CpuViewer {
         grid.setPadding(new Insets(15));
         grid.setStyle(Styles.cardStyle());
 
-        for (int i = 0; i < 32; i++) { // Adjusted for 32 registers
-            Label name = Styles.monoLabel(String.format("R%02d", i));
+        for (int i = 0; i < 32; i++) {
+            Label name = Styles.monoLabel(RegisterInfo.REG_NAMES[i]);
             Label value = Styles.valueLabel();
             registerLabels[i] = value;
 
@@ -79,6 +80,7 @@ public class CpuViewer {
         section.getChildren().add(grid);
         return section;
     }
+
 
     private VBox createControlRegistersSection() {
         VBox section = new VBox(10);

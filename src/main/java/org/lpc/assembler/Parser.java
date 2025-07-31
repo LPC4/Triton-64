@@ -1,6 +1,6 @@
 package org.lpc.assembler;
 
-import org.lpc.Globals;
+import org.lpc.cpu.RegisterInfo;
 
 public class Parser {
     // Remove symbolTable parameter from parsing methods
@@ -46,7 +46,7 @@ public class Parser {
 
     public static boolean isRegister(String operand) {
         String trimmed = operand.toLowerCase().trim();
-        return Globals.REG_ALIAS.containsKey(trimmed);
+        return RegisterInfo.REG_ALIAS.containsKey(trimmed);
     }
 
     public static boolean isLabel(String operand) {
@@ -63,8 +63,8 @@ public class Parser {
 
     public static int parseRegister(String operand) {
         String trimmed = operand.toLowerCase().trim();
-        if (Globals.REG_ALIAS.containsKey(trimmed)) {
-            return Globals.REG_ALIAS.get(trimmed);
+        if (RegisterInfo.REG_ALIAS.containsKey(trimmed)) {
+            return RegisterInfo.REG_ALIAS.get(trimmed);
         } else {
             throw new IllegalArgumentException("Invalid register: " + operand);
         }
