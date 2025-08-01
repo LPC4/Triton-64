@@ -5,7 +5,7 @@ public final class InstructionSet {
 
     // Special operations
     public static final int OP_NOP    = 0x00; // No operation, does nothing
-    public static final int OP_HLT   = 0x01; // Stops CPU execution
+    public static final int OP_HLT    = 0x01; // Stops CPU execution
 
     // 2-register operations (dest = op(src))
     public static final int OP_MOV    = 0x10; // Copy src to dest

@@ -4,6 +4,11 @@ import org.lpc.cpu.InstructionSet;
 import java.util.*;
 import static org.lpc.memory.MemoryMap.RAM_BASE;
 
+/**
+ * Assembler class that processes source code, expands pseudo-instructions,
+ * and generates machine code for the Triton-64 architecture.
+ * t9 gets used as a scratch register for immediate values, don't use it in your code!
+ */
 public class Assembler {
     private final Preprocessor preprocessor;
     private final Expander expander;

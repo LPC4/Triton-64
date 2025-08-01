@@ -17,6 +17,7 @@ public class Memory {
     private final ByteBuffer buffer;
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
+    @SuppressWarnings("ConstantValue")
     public Memory() {
         if (MemoryMap.TOTAL_SIZE > Integer.MAX_VALUE) {
             throw new IllegalStateException(
@@ -133,7 +134,6 @@ public class Memory {
     }
 
     // Write operations use write lock
-
     public void writeByte(long address, byte value) {
         lock.writeLock().lock();
         try {
