@@ -223,13 +223,6 @@ public class Memory {
     }
 
     /**
-     * Returns the total size of allocated memory.
-     */
-    public long getTotalSize() {
-        return MemoryMap.TOTAL_SIZE;
-    }
-
-    /**
      * Initializes ROM with the provided data. This method bypasses the normal
      * ROM write protection and should only be called during system initialization.
      * @param romData the ROM data to write
@@ -250,23 +243,6 @@ public class Memory {
             System.arraycopy(romData, 0, buffer.array(), 0, romData.length);
         } finally {
             lock.writeLock().unlock();
-        }
-    }
-
-    /**
-     * Creates a read-only view of a memory region.
-     * The returned ByteBuffer shares the same underlying data but prevents modifications.
-     */
-    public ByteBuffer getReadOnlyView(long address, int length) {
-        lock.readLock().lock();
-        try {
-            validateRange(address, length);
-            int offset = toOffset(address);
-            ByteBuffer slice = buffer.asReadOnlyBuffer();
-            slice.position(offset).limit(offset + length);
-            return slice.slice();
-        } finally {
-            lock.readLock().unlock();
         }
     }
 }

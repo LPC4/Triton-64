@@ -2,6 +2,7 @@ package org.lpc.assembler;
 
 import lombok.Getter;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -12,7 +13,7 @@ import java.util.stream.Stream;
  * from a pool (t0-t8) while avoiding conflicts with instruction operands.
  * .
  * Register Usage:
- * - t9: Reserved as scratch register for assembler internal operations
+ * - t9: Reserved as scratch register for assembler internal operations, do not use in code!
  * - t0-t8: Available temporary register pool, allocated as needed, saved/restored on stack
  * - sp: Stack pointer for safe temporary storage
  */
@@ -28,14 +29,19 @@ public class Expander {
 
     // Register definitions
     private static final String STACK_POINTER = "sp";
-    private static final String SCRATCH_REG = "t9";
+    private static final String SCRATCH_REG = "t9"; // t9 will get overwritten by LDI, PUSH, POP, etc.
     private static final List<String> TEMP_POOL = List.of(
             "t0", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8"
     );
 
     // Supported three-register operations
-    private static final Set<String> THREE_REG_OPERATIONS = Set.of(
-            "ADD", "SUB", "MUL", "DIV", "AND", "OR", "XOR", "SHL", "SHR", "SAR"
+    private static final Set<String> IMMEDIATE_EXPANDED_OPERATIONS = Set.of(
+            "ADD", "SUB", "MUL", "DIV", "AND", "OR", "XOR", "SHL", "SHR", "SAR", "CMP"
+    );
+
+    // Supported conditional jump operations
+    private static final Set<String> CONDITIONAL_JUMPS = Set.of(
+            "JZ", "JNZ", "JPP", "JPN"
     );
 
     private final Map<String, InstructionExpander> expanders = new HashMap<>();
@@ -47,17 +53,21 @@ public class Expander {
     private void initializeExpanders() {
         // Unsafe expander for ROM initialization
         expanders.put("LDIU", new UnsafeLDIExpander());
-
         // Safe expanders using stack preservation
         expanders.put("LDI", new SafeLDIExpander());
+
+        // Jump instructions
         expanders.put("JMP", new JumpExpander("JMP", false, 1));
-        expanders.put("JZ", new JumpExpander("JZ", true, 2));
-        expanders.put("JNZ", new JumpExpander("JNZ", true, 2));
+        CONDITIONAL_JUMPS.forEach(op -> {
+            expanders.put(op, new JumpExpander(op, true, 2));
+        });
+
+        // Stack operations
         expanders.put("PUSH", new StackExpander(true));
         expanders.put("POP", new StackExpander(false));
 
         // Three-register immediate operations
-        THREE_REG_OPERATIONS.forEach(op -> {
+        IMMEDIATE_EXPANDED_OPERATIONS.forEach(op -> {
             expanders.put(op, new ImmediateExpander(op));
         });
     }
@@ -71,10 +81,10 @@ public class Expander {
         return lines.stream()
                 .map(String::trim)
                 .filter(line -> !line.isEmpty())
-                .flatMap(line -> line.endsWith(":") ?
+                .flatMap(line -> line.endsWith(":") ? // If it's a label, keep it
                         Stream.of(line) :
                         expandInstruction(line, symbolTable).stream())
-                .collect(ArrayList::new, ArrayList::add, ArrayList::addAll);
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
     private List<String> expandInstruction(String instruction, SymbolTable symbolTable) {
@@ -177,7 +187,6 @@ public class Expander {
 
     // Base class for LDI expansion logic
     abstract static class BaseLDIExpander extends InstructionExpander {
-
         protected List<String> expandLDI(String[] operands, SymbolTable st, boolean useStack) {
             validateOperandCount(operands, 2, getInstructionName());
             String dest = operands[0];
@@ -310,7 +319,6 @@ public class Expander {
         }
     }
 
-    // Jump instruction expander
     // Jump instruction expander
     static class JumpExpander extends InstructionExpander {
         private final String mnemonic;

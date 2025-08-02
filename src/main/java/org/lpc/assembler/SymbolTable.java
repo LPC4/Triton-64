@@ -26,12 +26,4 @@ public class SymbolTable {
         }
         return symbols.get(name);
     }
-
-    public boolean hasSymbol(String name) {
-        return symbols.containsKey(name);
-    }
-
-    public Map<String, Long> getAllSymbols() {
-        return new HashMap<>(symbols);
-    }
 }

@@ -6,38 +6,47 @@ import java.util.Map;
 
 import static org.lpc.cpu.Cpu.REGISTER_COUNT;
 
-public class RegisterInfo {
+public final class RegisterInfo {
     public static final Map<String, Integer> REG_ALIAS;
     public static final String[] REG_NAMES = new String[REGISTER_COUNT];
 
-    static {
-        // Define register roles: {primary alias, numeric alias, index}
-        String[][] registerDefinitions = {
-                {"ra", "r0", "0"}, // Return address (link register)
-                {"sp", "r1", "1"}, // Stack pointer
-                {"hp", "r2", "2"}, // Heap pointer
-                {"gp", "r3", "3"}, // Global pointer
-                {"tp", "r4", "4"}, // Thread pointer
-                // Saved registers (callee-saved, s0-s9, r5-r14)
-                {"s0", "r5", "5"},   {"s1", "r6", "6"},   {"s2", "r7", "7"},   {"s3", "r8", "8"},   {"s4", "r9", "9"},
-                {"s5", "r10", "10"}, {"s6", "r11", "11"}, {"s7", "r12", "12"}, {"s8", "r13", "13"}, {"s9", "r14", "14"},
-                // Argument registers (caller-saved, a0-a6, r15-r21)
-                {"a0", "r15", "15"}, {"a1", "r16", "16"}, {"a2", "r17", "17"}, {"a3", "r18", "18"}, {"a4", "r19", "19"},
-                {"a5", "r20", "20"}, {"a6", "r21", "21"},
-                // Temporary registers (caller-saved, t0-t9, r22-r31)
-                {"t0", "r22", "22"}, {"t1", "r23", "23"}, {"t2", "r24", "24"}, {"t3", "r25", "25"}, {"t4", "r26", "26"},
-                {"t5", "r27", "27"}, {"t6", "r28", "28"}, {"t7", "r29", "29"}, {"t8", "r30", "30"}, {"t9", "r31", "31"}
-        };
+    private enum Register {
+        RA(0, "r0"),
+        SP(1, "r1"),
+        HP(2, "r2"),
+        GP(3, "r3"),
+        TP(4, "r4"),
 
+        S0(5, "r5"), S1(6, "r6"), S2(7, "r7"), S3(8, "r8"), S4(9, "r9"),
+        S5(10, "r10"), S6(11, "r11"), S7(12, "r12"), S8(13, "r13"), S9(14, "r14"),
+
+        A0(15, "r15"), A1(16, "r16"), A2(17, "r17"), A3(18, "r18"),
+        A4(19, "r19"), A5(20, "r20"), A6(21, "r21"),
+
+        T0(22, "r22"), T1(23, "r23"), T2(24, "r24"), T3(25, "r25"), T4(26, "r26"),
+        T5(27, "r27"), T6(28, "r28"), T7(29, "r29"), T8(30, "r30"), T9(31, "r31");
+
+        final int index;
+        final String numericAlias;
+
+        Register(int index, String numericAlias) {
+            this.index = index;
+            this.numericAlias = numericAlias;
+        }
+    }
+
+    static {
         Map<String, Integer> aliasMap = new HashMap<>();
-        for (int i = 0; i < REGISTER_COUNT; i++) {
-            // Populate REG_ALIAS with primary and numeric aliases
-            aliasMap.put(registerDefinitions[i][0], Integer.parseInt(registerDefinitions[i][2]));
-            aliasMap.put(registerDefinitions[i][1], Integer.parseInt(registerDefinitions[i][2]));
-            // Populate REG_NAMES with primary alias
-            REG_NAMES[i] = registerDefinitions[i][0];
+
+        for (Register reg : Register.values()) {
+            String name = reg.name().toLowerCase();
+            aliasMap.put(name, reg.index);
+            aliasMap.put(reg.numericAlias, reg.index);
+            REG_NAMES[reg.index] = name;
         }
 
         REG_ALIAS = Collections.unmodifiableMap(aliasMap);
     }
+
+    private RegisterInfo() {}
 }

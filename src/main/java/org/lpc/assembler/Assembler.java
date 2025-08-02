@@ -1,5 +1,6 @@
 package org.lpc.assembler;
 
+import org.lpc.cpu.InstructionInfo;
 import org.lpc.cpu.InstructionSet;
 import java.util.*;
 import static org.lpc.memory.MemoryMap.RAM_BASE;
@@ -30,6 +31,8 @@ public class Assembler {
 
         // Expand pseudo-instructions using resolved symbols
         List<String> expanded = expander.expand(lines, symbolTable);
+
+        expanded.forEach(System.out::println); // Debug: Print expanded instructions
 
         // Second pass: Assemble expanded instructions
         return assembleExpanded(expanded);
