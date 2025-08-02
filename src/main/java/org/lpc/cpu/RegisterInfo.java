@@ -6,6 +6,11 @@ import java.util.Map;
 
 import static org.lpc.cpu.Cpu.REGISTER_COUNT;
 
+/**
+ * Provides information about the CPU registers, including their names and aliases.
+ * This class is immutable and contains a static map of register aliases to their indices.
+ * Don't use t9 as it gets clobbered by assembler.
+ */
 public final class RegisterInfo {
     public static final Map<String, Integer> REG_ALIAS;
     public static final String[] REG_NAMES = new String[REGISTER_COUNT];

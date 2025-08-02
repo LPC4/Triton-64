@@ -1,3 +1,9 @@
+; ROM initialization code for a hypothetical system
+; This code sets up the stack pointer, heap pointer, global pointer, and jumps to the
+; start of RAM for execution.
+; It uses unsafe loads that clobber temporary registers, so don't use those in ROM code.
+; you can use the temps in runtime code, if you use safe loads (LDI) instead of unsafe loads (LDIU).
+
 LDIU sp, 0x20020000 ; Set stack pointer to top of RAM
 LDIU hp, 0x20000000 ; Set heap pointer to start of RAM
 LDIU gp, 0x20000000 ; Set global pointer to start of RAM

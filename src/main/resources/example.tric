@@ -1,0 +1,53 @@
+; Triton-C Feature Showcase
+; Demonstrates varisters, functions, control flow, and arithmetic
+
+; Function with return value
+func factorial(n) {
+    if (n <= 1) {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+; Function with multiple parameters
+func gcd(a, b) {
+    while (b != 0) {
+        var temp = b
+        b = a % b
+        a = temp
+    }
+    return a
+}
+
+; Main program
+func main() {
+    ; Register declarations
+    var x = 5
+    var y = 10
+    var z = 0
+
+    ; If-else demonstration
+    if (x < y) {
+        z = y - x
+    } else {
+        z = x - y
+    }
+
+    ; While loop demonstration
+    var counter = 0
+    while (counter < 5) {
+        counter = counter + 1
+    }
+
+    ; Function calls
+    var fact = factorial(5)  ; 120
+    var common_div = gcd(48, 18)  ; 6
+
+    ; Arithmetic operations
+    var sum = x + y
+    var product = x * y
+    var quotient = div(y, x)  ; Using your div function
+
+    ; Infinite loop to halt execution
+    while (1) {}
+}

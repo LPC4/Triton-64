@@ -18,6 +18,15 @@ public class Lexer {
         while (position < input.length()) {
             char c = input.charAt(position);
 
+            // Handle comments (semicolons)
+            if (c == ';') {
+                // Skip everything until end of line
+                while (position < input.length() && input.charAt(position) != '\n') {
+                    position++;
+                }
+                continue;
+            }
+
             if (Character.isWhitespace(c)) {
                 if (!currentToken.isEmpty()) {
                     tokens.add(currentToken.toString());
@@ -30,8 +39,35 @@ public class Lexer {
                     tokens.add(currentToken.toString());
                     currentToken.setLength(0);
                 }
-                tokens.add(String.valueOf(c));
-                position++;
+                // Handle multi-character operators (like <=, >=, ==, !=)
+                if (c == '<' && peekNext() == '=') {
+                    tokens.add("<=");
+                    position += 2;
+                }
+                else if (c == '>' && peekNext() == '=') {
+                    tokens.add(">=");
+                    position += 2;
+                }
+                else if (c == '=' && peekNext() == '=') {
+                    tokens.add("==");
+                    position += 2;
+                }
+                else if (c == '!' && peekNext() == '=') {
+                    tokens.add("!=");
+                    position += 2;
+                }
+                else if (c == '&' && peekNext() == '&') {
+                    tokens.add("&&");
+                    position += 2;
+                }
+                else if (c == '|' && peekNext() == '|') {
+                    tokens.add("||");
+                    position += 2;
+                }
+                else {
+                    tokens.add(String.valueOf(c));
+                    position++;
+                }
             }
             else {
                 currentToken.append(c);
@@ -46,7 +82,14 @@ public class Lexer {
         return tokens;
     }
 
+    private char peekNext() {
+        if (position + 1 < input.length()) {
+            return input.charAt(position + 1);
+        }
+        return '\0';
+    }
+
     private boolean isSpecialChar(char c) {
-        return "(){}=;,*&+-<>".indexOf(c) != -1;
+        return "(){}=,+-*/%<>!&|".indexOf(c) != -1;
     }
 }
