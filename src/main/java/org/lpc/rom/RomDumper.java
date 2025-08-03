@@ -9,7 +9,7 @@ import java.util.Objects;
 
 public class RomDumper {
     public static void main(String[] args) throws Exception {
-        File input = new File(Objects.requireNonNull(RomDumper.class.getResource("/rom.asm")).toURI());
+        File input = new File(Objects.requireNonNull(RomDumper.class.getResource("/rom/rom.asm")).toURI());
         File output = new File("src/main/java/org/lpc/rom/ROMData.java");
 
         if (!output.getParentFile().exists()) {

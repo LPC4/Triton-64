@@ -18,6 +18,19 @@ public class Preprocessor {
         return String.join("\n", lines);
     }
 
+    public String preprocess(List<String> lines) {
+        List<String> processedLines = new ArrayList<>();
+
+        for (String line : lines) {
+            String processed = preprocessLine(line);
+            if (!processed.isEmpty()) {
+                processedLines.add(processed);
+            }
+        }
+
+        return String.join("\n", processedLines);
+    }
+
     private String preprocessLine(String line) {
         // Remove comments (both ; and # style)
         String withoutComments = removeComments(line);

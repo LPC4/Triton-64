@@ -33,10 +33,10 @@ public class InstructionInfo {
             Map.entry("JNZ", InstructionSet.OP_JNZ),
             Map.entry("JPP", InstructionSet.OP_JPP),
             Map.entry("JPN", InstructionSet.OP_JPN),
+            Map.entry("JAL", InstructionSet.OP_JAL),
             Map.entry("LD" , InstructionSet.OP_LD),
             Map.entry("ST" , InstructionSet.OP_ST),
-            Map.entry("LDI", InstructionSet.OP_LDI),
-            Map.entry("LNK", InstructionSet.OP_LNK)
+            Map.entry("LDI", InstructionSet.OP_LDI)
     );
 
     public static final Map<String, OperandType[]> OPERAND_TYPES = Map.ofEntries(
@@ -61,10 +61,10 @@ public class InstructionInfo {
             Map.entry("JNZ", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("JPP", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("JPN", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
+            Map.entry("JAL", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("LD" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("ST" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
-            Map.entry("LDI", new OperandType[]{OperandType.REGISTER, OperandType.IMMEDIATE}),
-            Map.entry("LNK", new OperandType[]{OperandType.REGISTER})
+            Map.entry("LDI", new OperandType[]{OperandType.REGISTER, OperandType.IMMEDIATE})
     );
 
     public static final Map<Integer, String> OPCODE_NAMES = new HashMap<>() {
@@ -89,10 +89,10 @@ public class InstructionInfo {
             put(InstructionSet.OP_JNZ, "JNZ");
             put(InstructionSet.OP_JPP, "JPP");
             put(InstructionSet.OP_JPN, "JPN");
+            put(InstructionSet.OP_JAL, "JAL");
             put(InstructionSet.OP_LD , "LD");
             put(InstructionSet.OP_ST , "ST");
             put(InstructionSet.OP_LDI, "LDI");
-            put(InstructionSet.OP_LNK, "LNK");
         }
     };
 }

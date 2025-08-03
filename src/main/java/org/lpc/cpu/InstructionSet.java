@@ -47,6 +47,7 @@ public final class InstructionSet {
     public static final int OP_JNZ = 0x32; // JNZ rdest, rsrc                ; if (rsrc != 0) PC = rdest
     public static final int OP_JPP = 0x33; // JPP rdest, rsrc                ; if (rsrc > 0)  PC = rdest
     public static final int OP_JPN = 0x34; // JPN rdest, rsrc                ; if (rsrc < 0)  PC = rdest
+    public static final int OP_JAL = 0x35; // JAL rdest, rsrc                ; Jump and link (store return addr in rsrc)
 
     // Memory
     public static final int OP_LD  = 0x40; // LD  rdest, rsrc                ; rdest = mem[rsrc]
@@ -54,9 +55,6 @@ public final class InstructionSet {
 
     // Immediate load (sign-extended 10-bit)
     public static final int OP_LDI = 0x50; // LDI rdest, imm10               ; rdest = imm (-512 to +511)
-
-    // Function return support
-    public static final int OP_LNK = 0x60; // LNK rdest                      ; rdest = current PC (for call/ret)
 
     /*—— Pseudo-Instructions (Assembler Expansions) ————————— */
     // These are assembler conveniences, not encoded directly.

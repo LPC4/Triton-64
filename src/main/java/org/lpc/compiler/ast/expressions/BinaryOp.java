@@ -6,7 +6,7 @@ import org.lpc.compiler.ast.parent.Expression;
 
 @ToString
 public class BinaryOp extends Expression {
-    public enum Op { ADD, SUB, MUL, DIV, MOD, LT, LE, GT, GE, EQ, NE, AND, OR }
+    public enum Op { ADD, SUB, MUL, DIV, MOD, LT, LE, GT, GE, EQ, NE, AND, OR, XOR, SHL, SHR, SAR }
 
     public final Op op;
     public final Expression left;
@@ -37,6 +37,10 @@ public class BinaryOp extends Expression {
             case "!=" -> Op.NE;
             case "&&" -> Op.AND;
             case "||" -> Op.OR;
+            case "^" -> Op.XOR;
+            case ">>" -> Op.SHR;
+            case "<<" -> Op.SHL;
+            case ">>>" -> Op.SAR; // Logical right shift
             default -> throw new IllegalArgumentException("Unknown operator: " + op);
         };
     }

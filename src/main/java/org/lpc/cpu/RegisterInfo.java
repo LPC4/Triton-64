@@ -18,9 +18,9 @@ public final class RegisterInfo {
     private enum Register {
         RA(0, "r0"),
         SP(1, "r1"),
-        HP(2, "r2"),
+        FP(2, "r2"),
         GP(3, "r3"),
-        TP(4, "r4"),
+        HP(4, "r4"),
 
         S0(5, "r5"), S1(6, "r6"), S2(7, "r7"), S3(8, "r8"), S4(9, "r9"),
         S5(10, "r10"), S6(11, "r11"), S7(12, "r12"), S8(13, "r13"), S9(14, "r14"),

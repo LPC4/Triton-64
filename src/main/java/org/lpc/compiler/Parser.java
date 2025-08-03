@@ -26,7 +26,7 @@ public class Parser {
         Program program = new Program(functions);
 
         // Print the AST after parsing
-        System.out.println("Parsed AST:");
+        System.out.println("\nParsed AST:");
         System.out.println(program);
         return program;
     }

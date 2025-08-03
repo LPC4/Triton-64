@@ -41,7 +41,7 @@ public class Expander {
 
     // Supported conditional jump operations
     private static final Set<String> CONDITIONAL_JUMPS = Set.of(
-            "JZ", "JNZ", "JPP", "JPN"
+            "JZ", "JNZ", "JPP", "JPN", "JAL"
     );
 
     private final Map<String, InstructionExpander> expanders = new HashMap<>();

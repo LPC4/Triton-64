@@ -32,6 +32,23 @@ public class Assembler {
         // Expand pseudo-instructions using resolved symbols
         List<String> expanded = expander.expand(lines, symbolTable);
 
+        //expanded.forEach(System.out::println); // Debug: Print expanded instructions
+
+        // Second pass: Assemble expanded instructions
+        return assembleExpanded(expanded);
+    }
+
+    public int[] assemble(List<String> sourceCode) {
+        // Preprocess and split into lines
+        String cleaned = preprocessor.preprocess(sourceCode);
+        List<String> lines = Arrays.asList(cleaned.split("\n"));
+
+        // First pass: Build symbol table with pseudo-instruction sizes
+        firstPassWithPseudo(lines);
+
+        // Expand pseudo-instructions using resolved symbols
+        List<String> expanded = expander.expand(lines, symbolTable);
+
         expanded.forEach(System.out::println); // Debug: Print expanded instructions
 
         // Second pass: Assemble expanded instructions
