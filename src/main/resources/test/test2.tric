@@ -29,8 +29,7 @@ func main() {
     var product = x * y
     var factorial = factorial(4)  ; 24
 
-    ; Infinite loop to halt execution
-    while (1) {}
+    return sum + product + fact + z  ; Returns the total of all operations = 15 + 50 + 120 + 5 = 190 stored in a0
 }
 
 ; Function with return value

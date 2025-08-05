@@ -11,7 +11,7 @@ import java.util.*;
 @Getter
 public class CodeGenContext {
     private final List<String> assembly;
-    private final Deque<String> savedTemporaries;
+    private final Deque<String> savedTemporaries; // temps to be restored later
 
     // Label generation
     private int labelCounter = 0;
@@ -26,16 +26,12 @@ public class CodeGenContext {
         assembly.add(code);
     }
 
+    public void pushTemporary(String temp) {
+        savedTemporaries.push(temp);
+    }
+
     public String generateLabel(String prefix) {
         lastGeneratedLabel = String.format("%s_%d", prefix, labelCounter++);
         return lastGeneratedLabel;
-    }
-
-    // Reset methods
-    public void reset() {
-        assembly.clear();
-        savedTemporaries.clear();
-        labelCounter = 0;
-        lastGeneratedLabel = null;
     }
 }

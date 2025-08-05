@@ -26,16 +26,16 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 ### Register Layout
 
 | Alias | Numeric | Purpose |
-|-------|---------|---------|
-| `ra`  | `r0`    | Return address |
-| `sp`  | `r1`    | Stack pointer |
-| `fp`  | `r2`    | Frame pointer |
-| `gp`  | `r3`    | Global pointer |
-| `hp`  | `r4`    | Heap pointer |
+| --- | --- | --- |
+| `ra` | `r0` | Return address |
+| `sp` | `r1` | Stack pointer |
+| `fp` | `r2` | Frame pointer |
+| `gp` | `r3` | Global pointer |
+| `hp` | `r4` | Heap pointer |
 | `s0-s9` | `r5-r14` | Saved registers |
 | `a0-a6` | `r15-r21` | Argument registers |
 | `t0-t8` | `r22-r30` | Temporary registers |
-| `t9`  | `r31`   | **Reserved for assembler use** |
+| `t9` | `r31` | **Reserved for assembler use** |
 
 ### Memory Layout
 
@@ -56,16 +56,19 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 ### Core Instructions
 
 #### Special Operations
+
 - `NOP` - No operation
 - `HLT` - Halt CPU execution
 
 #### Data Movement
+
 - `MOV rdest, rsrc` - Copy register value
 - `LDI rdest, imm10` - Load 10-bit signed immediate (-512 to +511)
 - `LD rdest, rsrc` - Load from memory address
 - `ST rdest, rsrc` - Store to memory address
 
 #### Arithmetic Operations
+
 - `ADD rdest, rsrc1, rsrc2` - Addition
 - `SUB rdest, rsrc1, rsrc2` - Subtraction
 - `MUL rdest, rsrc1, rsrc2` - Multiplication
@@ -73,6 +76,7 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 - `NEG rdest, rsrc` - Arithmetic negation
 
 #### Bitwise Operations
+
 - `AND rdest, rsrc1, rsrc2` - Bitwise AND
 - `OR rdest, rsrc1, rsrc2` - Bitwise OR
 - `XOR rdest, rsrc1, rsrc2` - Bitwise XOR
@@ -82,6 +86,7 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 - `SAR rdest, rsrc1, rsrc2` - Arithmetic shift right
 
 #### Control Flow
+
 - `JMP rdest` - Unconditional jump to register address
 - `JZ rdest, rsrc` - Jump if zero
 - `JNZ rdest, rsrc` - Jump if not zero
@@ -94,6 +99,7 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 The assembler provides powerful macro expansions for common operations:
 
 #### Label Operations
+
 ```assembly
 loop:               ; Define jump target
 JMP loop           ; Jump to label (expands to address loading)
@@ -101,18 +107,21 @@ JZ loop, r0        ; Conditional jump to label
 ```
 
 #### Extended Immediate Loading
+
 ```assembly
 LDI r0, 0x123456789ABCDEF  ; 64-bit immediate (multi-instruction expansion)
 LDIU r0, 0x123456789ABCDEF ; Unsafe fast load (clobbers temps)
 ```
 
 #### Stack Operations
+
 ```assembly
 PUSH r0, r1, r2    ; Push multiple registers to stack
 POP r0, r1, r2     ; Pop multiple registers from stack
 ```
 
 #### Immediate ALU Operations
+
 ```assembly
 ADD r0, r1, 42     ; Add immediate (expands to temp + register operation)
 SUB r0, r1, 100    ; Subtract immediate
@@ -120,22 +129,103 @@ SUB r0, r1, 100    ; Subtract immediate
 
 ## TriC Programming Language
 
-TriC is a high-level programming language that compiles to Triton-64 assembly. It provides:
+TriC is a high-level programming language designed specifically for the Triton-64 Virtual Machine. It provides a more accessible way to write programs for the VM compared to writing raw assembly code. TriC supports modern programming constructs while being mindful of the underlying VM architecture.
 
-- **Control Structures**: if/else, while loops, for loops
-- **Functions**: Functions with proper calling conventions
-- **Memory Management**: Automatic stack management with manual heap control
-- **Expressions**: Full expression evaluation with operator precedence
+### Language Features
+
+- **Variables**: Declare and use variables with automatic stack management. Currently, only integer types are supported.
+- **Functions**: Define functions with parameters and return values, following the Triton-64 calling convention.
+- **Control Flow**: Use `if-else` statements and `while` loops for conditional and repetitive execution.
+- **Expressions**: Write complex expressions with arithmetic, logical, and comparison operators.
+- **Function Calls**: Call functions with up to 7 arguments, adhering to the register-based calling convention.
+
+### Syntax Examples
+
+Here are some snippets demonstrating TriC's syntax:
+
+#### Variable Declaration and Assignment
+
+```tric
+var x = 10
+var y = 20
+var sum = x + y
+```
+
+#### Function Definition
+
+```tric
+func add(a, b) {
+    return a + b
+}
+```
+
+#### If-Else Statement
+
+```tric
+if (x > y) {
+    z = x - y
+} else {
+    z = y - x
+}
+```
+
+#### While Loop
+
+```tric
+var i = 0
+while (i < 10) {
+    i = i + 1
+}
+```
+
+#### Function Call
+
+```tric
+var result = add(5, 3)
+```
+
+For a more comprehensive example, see the Example TriC Program below.
+
+### Compiler Overview
+
+The Tri-C compiler is responsible for translating TriC source code into Triton-64 assembly code. It consists of several components:
+
+- **Lexer**: Breaks the source code into tokens.
+- **Parser**: Analyzes the tokens to build an Abstract Syntax Tree (AST) representing the program's structure.
+- **Code Generator**: Traverses the AST to generate corresponding assembly code, handling register allocation, stack management, and control flow.
+
+The compiler is designed to produce efficient assembly code while maintaining readability and debuggability.
+
+### Integration with Triton-64 VM
+
+TriC programs are compiled to assembly code, which can then be assembled and run on the Triton-64 VM. The compiler ensures that the generated code adheres to the VM's architecture, including register usage and memory management.
+
+When writing TriC programs, developers should be aware of the following:
+
+- Variables are stored on the stack, with automatic management of stack frames for functions.
+- Functions use the `ra` register for return addresses and `a0` for return values.
+- The stack pointer (`sp`) and frame pointer (`fp`) are managed according to the VM's conventions.
+
+### Development and Debugging
+
+While developing TriC programs, you can leverage the VM's debugging tools:
+
+- **CPU Viewer**: Monitor register states and program counter during execution.
+- **Memory Viewer**: Inspect memory contents, including the stack and heap.
+
+Additionally, the compiler can generate debug information to map assembly instructions back to TriC source code lines, aiding in debugging.
 
 ### Example TriC Program
 
+Below is a complete TriC program that demonstrates various language features:
+
 ```tric
 ; Triton-C Feature Showcase
-; Demonstrates varisters, functions, control flow, and arithmetic
+; Demonstrates variables, functions, control flow, and arithmetic
 
 ; Main program
 func main() {
-    ; Register declarations
+    ; Variable declarations
     var x = 5
     var y = 10
     var z = 0
@@ -161,8 +251,8 @@ func main() {
     var product = x * y
     var factorial = factorial(4)  ; 24
 
-    ; Infinite loop to halt execution
-    while (1) {}
+    ; Return the total of all operations
+    return sum + product + fact + z  ; 15 + 50 + 120 + 5 = 190 stored in a0
 }
 
 ; Function with return value
@@ -175,6 +265,8 @@ func factorial(n) {
 }
 ```
 
+This program showcases variable usage, control flow, function definitions, and recursive function calls. After execution, the result (190) is stored in the `a0` register.
+
 ## System Components
 
 ### Assembler (`org.lpc.assembler.Assembler`)
@@ -186,20 +278,31 @@ The assembler performs sophisticated two-pass assembly:
 3. **Second Pass**: Machine code generation
 
 Key features:
+
 - **Symbol Table**: Global label resolution
 - **Macro System**: Powerful pseudo-instruction expansion
 
 ### Compiler (`org.lpc.compiler.TriCCompiler`)
 
-The TriC compiler implements a full compilation pipeline:
+The Tri-C compiler is a crucial component that translates TriC source code into Triton-64 assembly. It follows a standard compilation pipeline:
 
-1. **Lexical Analysis**: Token generation from source code
-2. **Parsing**: AST construction with syntax validation
-3. **Code Generation**: Assembly code emission with optimization
+1. **Lexical Analysis (**`Lexer`**)**: Converts the source code into a stream of tokens.
+2. **Parsing (**`Parser`**)**: Constructs an Abstract Syntax Tree (AST) from the tokens, validating the syntax.
+3. **Code Generation (**`CodeGenerator`**)**: Walks the AST to emit assembly code, managing registers, stack frames, and control flow.
+
+Key features of the compiler include:
+
+- **Register Management**: Efficient allocation and deallocation of temporary registers.
+- **Stack Management**: Automatic handling of stack frames for functions and local variables.
+- **Control Flow Generation**: Proper generation of jumps and labels for `if-else` and `while` statements.
+- **Function Handling**: Support for function calls with parameter passing and return values.
+
+The compiler is designed to be modular, with each component responsible for a specific phase of compilation, making it easier to maintain and extend.
 
 ### Memory System (`org.lpc.memory.Memory`)
 
 Sophisticated memory management with:
+
 - **Region Protection**: ROM write protection
 - **Address Validation**: Bounds checking for all accesses
 - **Endianness Handling**: Little-endian byte ordering
@@ -208,6 +311,7 @@ Sophisticated memory management with:
 ### CPU (`org.lpc.cpu.Cpu`)
 
 The CPU core provides:
+
 - **Instruction Execution**: Full ISA implementation
 - **Register Management**: 32 64-bit general-purpose registers
 - **Control Flow**: Program counter management with jumps
@@ -219,11 +323,13 @@ The CPU core provides:
 The system includes JavaFX-based debugging tools:
 
 #### CPU Viewer (`org.lpc.visual.CpuViewer`)
+
 - Real-time register display
 - Program counter tracking
 - Execution status monitoring
 
 #### Memory Viewer (`org.lpc.visual.MemoryViewer`)
+
 - Memory region visualization
 - Hexadecimal dump display
 - Address-based navigation
@@ -241,37 +347,43 @@ The ROM system allows bootable code development:
 
 ```
 org.lpc/
-├── Main.java                    # Application entry point and VM orchestration
+├── Main.java                           # Application entry point
 ├── assembler/
-│   ├── Assembler.java          # Main assembler with pseudo-instruction support
-│   ├── Expander.java           # Pseudo-instruction expansion engine
-│   ├── Parser.java             # Assembly syntax parsing
-│   ├── Preprocessor.java       # Source code preprocessing
-│   └── SymbolTable.java        # Label and symbol management
+│   ├── Assembler.java                  # Main assembler with pseudo-instruction support
+│   ├── Expander.java                   # Pseudo-instruction expansion engine
+│   ├── Parser.java                     # Assembly syntax parsing
+│   ├── Preprocessor.java               # Source code preprocessing
+│   └── SymbolTable.java                # Label and symbol management
 ├── compiler/
-│   ├── TriCCompiler.java       # Main compiler interface
-│   ├── Lexer.java              # Tokenization
-│   ├── Parser.java             # AST generation
-│   ├── CodeGenerator.java      # Assembly emission
-│   ├── CodeGenContext.java     # Context for code generation
-│   └── ast/                    # Abstract syntax tree nodes
+│   ├── TriCCompiler.java               # Main compiler interface
+│   ├── Lexer.java                      # Tokenization
+│   ├── Parser.java                     # AST generation
+│   ├── CodeGenerator.java              # Assembly emission
+│   ├── CodeGenContext.java             # Context for code generation
+│   ├── codegen/                        # Code generation utilities
+│   │   ├── FunctionManager.java        # Manages function generation and calling conventions
+│   │   ├── StackManager.java           # Handles stack operations and variable storage
+│   │   ├── InstructionEmitter.java     # Emits assembly instructions
+│   │   ├── RegisterManager.java        # Manages register allocation
+│   │   ├── CodeGenContext.java         # Manages asm context during code generation
+│   │   └── ConditionalGenerator.java   # Generates conditional control flow
+│   └── ast/                            # Abstract syntax tree nodes
 ├── cpu/
-│   ├── Cpu.java                # CPU core implementation
-│   ├── InstructionSet.java     # ISA definition and encoding
-│   ├── InstructionInfo.java    # Instruction metadata
-│   └── RegisterInfo.java       # Register naming and aliases
+│   ├── Cpu.java                        # CPU core implementation
+│   ├── InstructionSet.java             # ISA definition and encoding
+│   ├── InstructionInfo.java            # Instruction metadata
+│   └── RegisterInfo.java               # Register naming and aliases
 ├── memory/
-│   ├── Memory.java             # Memory management system
-│   └── MemoryMap.java          # Address space layout
+│   ├── Memory.java                     # Memory management system
+│   └── MemoryMap.java                  # Address space layout
 ├── rom/
-│   ├── RomDumper.java          # ROM generation utility
-│   └── ROMData.java            # Generated ROM data (auto-generated)
+│   ├── RomDumper.java                  # ROM generation utility
+│   └── ROMData.java                    # Generated ROM data (auto-generated)
 └── visual/
-    ├── CpuViewer.java          # CPU state visualization
-    ├── MemoryViewer.java       # Memory dump visualization
-    ├── MemoryPrinter.java      # Memory content printing
-    └── style/                  # Styles for visual components
-    
+    ├── CpuViewer.java                  # CPU state visualization
+    ├── MemoryViewer.java               # Memory dump visualization
+    ├── MemoryPrinter.java              # Memory content printing
+    └── style/                          # Styles for visual components
 ```
 
 ## Usage Examples
