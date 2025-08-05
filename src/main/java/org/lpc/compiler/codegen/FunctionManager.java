@@ -13,7 +13,6 @@ import java.util.Set;
 
 /**
  * Manages function generation including prologue, epilogue, and calling conventions.
- * Handles the complexity of function setup and teardown.
  */
 public class FunctionManager {
     private static final int WORD_SIZE = 8;
@@ -24,7 +23,6 @@ public class FunctionManager {
     private final RegisterManager registerManager;
     private final StackManager stackManager;
 
-    // Helper for analyzing function structure
     private final FunctionAnalyzer analyzer;
 
     public FunctionManager(CodeGenContext ctx, InstructionEmitter emitter,
@@ -36,9 +34,6 @@ public class FunctionManager {
         this.analyzer = new FunctionAnalyzer();
     }
 
-    /**
-     * Generate a complete function with prologue and epilogue
-     */
     public void generateFunction(String name, List<String> parameters, List<Statement> body,
                                  CodeGenerator.StatementBlockGenerator bodyGenerator, String endLabel) {
         emitter.sectionHeader("Function: " + name);
@@ -51,7 +46,8 @@ public class FunctionManager {
             FunctionInfo info = analyzer.analyze(body, parameters);
 
             generateFunctionPrologue(info.localVariableCount());
-            generateFunctionBody(body, bodyGenerator, info);
+            // Generate all statements in source order, including declarations with initializers
+            bodyGenerator.generate(body);
             generateFunctionEpilogue(endLabel, name, info.localVariableCount());
 
         } finally {
@@ -60,14 +56,8 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Represents analyzed function information
-     */
     private record FunctionInfo(int localVariableCount, List<Statement> declarations, List<Statement> otherStatements) {}
 
-    /**
-     * Analyzes function structure and extracts key information
-     */
     private class FunctionAnalyzer {
         public FunctionInfo analyze(List<Statement> body, List<String> parameters) {
             int localVarCount = countAllLocalVariables(body, parameters);
@@ -99,9 +89,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Counts variables recursively through nested statements
-     */
     private static class VariableCounter {
         private final Set<String> parameters;
 
@@ -133,9 +120,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Generate function prologue with stack allocation
-     */
     private void generateFunctionPrologue(int localVarCount) {
         emitter.comment("Function prologue");
         emitter.push("ra");
@@ -147,26 +131,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Generate the function body (declarations first, then other statements)
-     */
-    private void generateFunctionBody(List<Statement> body,
-                                      CodeGenerator.StatementBlockGenerator bodyGenerator,
-                                      FunctionInfo info) {
-        if (!info.declarations().isEmpty()) {
-            emitter.comment("Processing local variable declarations");
-            bodyGenerator.generate(info.declarations());
-        }
-
-        if (!info.otherStatements().isEmpty()) {
-            emitter.comment("Processing function body");
-            bodyGenerator.generate(info.otherStatements());
-        }
-    }
-
-    /**
-     * Generate function epilogue with stack cleanup
-     */
     private void generateFunctionEpilogue(String endLabel, String functionName, int localVarCount) {
         emitter.comment("Function epilogue");
         emitter.label(endLabel);
@@ -180,9 +144,6 @@ public class FunctionManager {
         emitter.instructionWithComment("Return from " + functionName, "JMP", "ra");
     }
 
-    /**
-     * Allocate aligned stack space for local variables
-     */
     private void allocateStackSpace(int localVarCount) {
         int frameSize = localVarCount * WORD_SIZE;
         int alignedSize = alignToStackBoundary(frameSize);
@@ -197,9 +158,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Deallocate stack space for local variables
-     */
     private void deallocateStackSpace(int localVarCount) {
         int frameSize = localVarCount * WORD_SIZE;
         int alignedSize = alignToStackBoundary(frameSize);
@@ -214,16 +172,10 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Align frame size to stack boundary requirements
-     */
     private int alignToStackBoundary(int size) {
         return (size + STACK_ALIGNMENT - 1) & ~(STACK_ALIGNMENT - 1);
     }
 
-    /**
-     * Validate that all registers were properly freed
-     */
     private void validateRegisterState(String functionName) {
         try {
             registerManager.validateAllFreed();
@@ -233,9 +185,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Generate a function call with proper calling convention
-     */
     public String generateFunctionCall(String functionName, List<Expression> arguments, CodeGenerator visitor) {
         emitter.comment("Preparing function call: " + functionName);
 
@@ -246,9 +195,6 @@ public class FunctionManager {
         return new FunctionCallGenerator().generateCall(functionName, arguments, visitor);
     }
 
-    /**
-     * Handles the complexity of function call generation
-     */
     private class FunctionCallGenerator {
         public String generateCall(String functionName, List<Expression> arguments, CodeGenerator visitor) {
             saveLiveTemporaries();
@@ -304,9 +250,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Save live temporary registers before function call
-     */
     private void saveLiveTemporaries() {
         var liveTemps = registerManager.getLiveTemporaries();
         if (!liveTemps.isEmpty()) {
@@ -320,9 +263,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Restore live temporary registers after function call
-     */
     private void restoreLiveTemporaries() {
         var savedTemps = ctx.getSavedTemporaries();
         if (!savedTemps.isEmpty()) {
@@ -334,9 +274,6 @@ public class FunctionManager {
         }
     }
 
-    /**
-     * Extract numeric index from register name (e.g., "t5" -> 5)
-     */
     private int extractRegisterIndex(String register) {
         return Integer.parseInt(register.substring(1));
     }

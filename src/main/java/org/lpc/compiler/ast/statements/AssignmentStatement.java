@@ -7,10 +7,11 @@ import org.lpc.compiler.ast.parent.Statement;
 
 @ToString
 public class AssignmentStatement extends Statement {
-    public final String name;
+    public final Expression target;
     public final Expression initialValue;
-    public AssignmentStatement(String name, Expression initialValue) {
-        this.name = name;
+
+    public AssignmentStatement(Expression target, Expression initialValue) {
+        this.target = target;
         this.initialValue = initialValue;
     }
     @Override

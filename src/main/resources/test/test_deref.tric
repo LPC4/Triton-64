@@ -1,0 +1,11 @@
+func main() {
+    var b = -1 ; test value
+    var a = 539099136  ; address to dereference, this is a constant address in Triton-C
+
+    @a = b      ; store the value 0xDEADBEEF at the address stored in a, which is 539099136
+    var c = @a  ; dereference the address stored in a, c should now be 0xDEADBEEF
+
+    ;while (1) {}
+
+    return c
+}

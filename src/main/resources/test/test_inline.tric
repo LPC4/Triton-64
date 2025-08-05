@@ -1,5 +1,5 @@
 func main() {
-    ret()
+    ret(5)
     ; inline assembly example, s1 stores 5 (a0 filled with return of ret()), and a0 is set to 0xDEADBEEF
     asm {
         MOV s1, a0
@@ -8,6 +8,6 @@ func main() {
     return
 }
 
-func ret() {
-    return 5
+func ret(x) {
+    return x
 }

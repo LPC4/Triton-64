@@ -157,15 +157,27 @@ public class CodeGenerator implements AstVisitor<String> {
 
     @Override
     public String visit(AssignmentStatement assignment) {
-        emitter.comment("Assignment: " + assignment.name);
-
-        int offset = stackManager.getVariableOffset(assignment.name);
-        String valueReg = assignment.initialValue.accept(this);
-        stackManager.storeToStack(offset, valueReg);
-        registerManager.freeRegister(valueReg);
-
+        if (assignment.target instanceof Variable var) {
+            emitter.comment("Assignment to variable: " + var.name);
+            int offset = stackManager.getVariableOffset(var.name);
+            String valueReg = assignment.initialValue.accept(this);
+            stackManager.storeToStack(offset, valueReg);
+            registerManager.freeRegister(valueReg);
+        }
+        else if (assignment.target instanceof Dereference deref) {
+            String addrReg = deref.address.accept(this);
+            String valueReg = assignment.initialValue.accept(this);
+            emitter.comment("Assignment to dereferenced address at " + addrReg);
+            emitter.instruction("ST", addrReg, valueReg);
+            registerManager.freeRegister(addrReg);
+            registerManager.freeRegister(valueReg);
+        }
+        else {
+            throw new IllegalStateException("Unsupported assignment target");
+        }
         return null;
     }
+
 
     @Override
     public String visit(AsmStatement asmStatement) {
@@ -248,6 +260,16 @@ public class CodeGenerator implements AstVisitor<String> {
         emitter.instruction("LDI", reg, String.valueOf(integerLiteral.value));
         return reg;
     }
+
+    @Override
+    public String visit(Dereference dereference) {
+        String addrReg = dereference.address.accept(this);
+        String resultReg = registerManager.allocateRegister();
+        emitter.instruction("LD", resultReg, addrReg);
+        registerManager.freeRegister(addrReg);
+        return resultReg;
+    }
+
 
     // Helper methods
     private void generateStatements(List<Statement> statements) {

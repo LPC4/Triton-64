@@ -25,7 +25,6 @@ public class Parser {
         }
         Program program = new Program(functions);
 
-        // Print the AST after parsing
         System.out.println("\nParsed AST:");
         System.out.println(program);
         return program;
@@ -50,7 +49,6 @@ public class Parser {
     private List<Statement> parseBlock() {
         List<Statement> statements = new ArrayList<>();
         while (!check("}") && !isAtEnd()) {
-            // Skip semicolons (comments)
             if (check(";")) {
                 consume();
                 continue;
@@ -67,25 +65,187 @@ public class Parser {
         if (match("while")) return parseWhileStatement();
         if (match("var")) return parseDeclaration();
         if (match("asm")) return parseAsmStatement();
-        if (checkTokenIsIdentifier() && check(1, "=")) {
-            return parseAssignment();
-        }
-        Expression expr = parseExpression();
-        if (expr instanceof FunctionCall) {
-            return new ExpressionStatement(expr);
-        }
-        throw new RuntimeException("Invalid statement: " + expr);
+
+        return parseAssignmentOrExpressionStatement();
     }
 
-    private Statement parseAsmStatement() {
-        consume("{");
-        StringBuilder asmCode = new StringBuilder();
-        while (!check("}")) {
-            String token = consume();
-            asmCode.append(token).append("\n");
+    private Statement parseAssignmentOrExpressionStatement() {
+        Expression left = parsePrimary();
+
+        // Check if next token is '=' for assignment
+        if (check("=")) {
+            consume("=");
+            Expression right = parseExpression();
+            if (check(";")) consume();
+            return new AssignmentStatement(left, right);
         }
-        consume("}");
-        return new AsmStatement(asmCode.toString());
+
+        // Not assignment, parse the rest of the expression starting with left
+        Expression expr = parseExpressionRest(left);
+
+        if (expr instanceof FunctionCall) {
+            if (check(";")) consume();
+            return new ExpressionStatement(expr);
+        }
+
+        if (check(";")) consume();
+        return new ExpressionStatement(expr);
+    }
+
+    // Overloaded parse methods to continue parsing expressions with left as start
+
+    private Expression parseExpression() {
+        return parseLogicalOr();
+    }
+
+    private Expression parseExpressionRest(Expression left) {
+        return parseLogicalOr(left);
+    }
+
+    private Expression parseLogicalOr() {
+        Expression left = parseLogicalAnd();
+        while (match("||")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseLogicalAnd();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseLogicalOr(Expression left) {
+        while (match("||")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseLogicalAnd();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseLogicalAnd() {
+        Expression left = parseEquality();
+        while (match("&&")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseEquality();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseLogicalAnd(Expression left) {
+        while (match("&&")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseEquality();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseEquality() {
+        Expression left = parseComparison();
+        while (match("==", "!=")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseComparison();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseEquality(Expression left) {
+        while (match("==", "!=")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseComparison();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseComparison() {
+        Expression left = parseAdditive();
+        while (match("<=", ">=", "<", ">")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseAdditive();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseComparison(Expression left) {
+        while (match("<=", ">=", "<", ">")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseAdditive();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseAdditive() {
+        Expression left = parseMultiplicative();
+        while (match("+", "-")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseMultiplicative();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseAdditive(Expression left) {
+        while (match("+", "-")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseMultiplicative();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseMultiplicative() {
+        Expression left = parseUnary();
+        while (match("*", "/", "%")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseUnary();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseMultiplicative(Expression left) {
+        while (match("*", "/", "%")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseUnary();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseUnary() {
+        if (match("-", "!")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseUnary();
+            return new UnaryOp(operator, right);
+        }
+        return parsePrimary();
+    }
+
+    private Expression parsePrimary() {
+        if (match("(")) {
+            Expression expr = parseExpression();
+            consume(")");
+            return expr;
+        }
+        if (match("@")) {
+            Expression address = parsePrimary();
+            return new Dereference(address);
+        }
+        if (checkTokenIsInteger()) {
+            return new IntegerLiteral(Integer.parseInt(consume()));
+        }
+        if (checkTokenIsIdentifier()) {
+            String name = consume();
+            if (match("(")) {
+                return parseFunctionCall(name);
+            }
+            return new Variable(name);
+        }
+        throw new RuntimeException("Unexpected token: " + peek());
     }
 
     private Statement parseIfStatement() {
@@ -120,115 +280,23 @@ public class Parser {
 
     private Statement parseReturnStatement() {
         if (check(";") || check("}")) {
-            // Skip semicolon if present
             if (check(";")) consume();
             return new ReturnStatement(null);
         }
         Expression value = parseExpression();
-        // Skip semicolon if present
         if (check(";")) consume();
         return new ReturnStatement(value);
     }
 
-    private Statement parseAssignment() {
-        String name = consume();
-        consume("=");
-        Expression value = parseExpression();
-        // Skip semicolon if present
-        if (check(";")) consume();
-        return new AssignmentStatement(name, value);
-    }
-
-    private Expression parseExpression() {
-        return parseLogicalOr();
-    }
-
-    private Expression parseLogicalOr() {
-        Expression left = parseLogicalAnd();
-        while (match("||")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseLogicalAnd();
-            left = new BinaryOp(operator, left, right);
+    private Statement parseAsmStatement() {
+        consume("{");
+        StringBuilder asmCode = new StringBuilder();
+        while (!check("}")) {
+            String token = consume();
+            asmCode.append(token).append("\n");
         }
-        return left;
-    }
-
-    private Expression parseLogicalAnd() {
-        Expression left = parseEquality();
-        while (match("&&")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseEquality();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseEquality() {
-        Expression left = parseComparison();
-        while (match("==", "!=")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseComparison();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseComparison() {
-        Expression left = parseAdditive();
-        while (match("<=", ">=", "<", ">")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseAdditive();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseAdditive() {
-        Expression left = parseMultiplicative();
-        while (match("+", "-")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseMultiplicative();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseMultiplicative() {
-        Expression left = parseUnary();
-        while (match("*", "/", "%")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseUnary();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseUnary() {
-        if (match("-", "!")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseUnary();
-            return new UnaryOp(operator, right);
-        }
-        return parsePrimary();
-    }
-
-    private Expression parsePrimary() {
-        if (match("(")) {
-            Expression expr = parseExpression();
-            consume(")");
-            return expr;
-        }
-        if (checkTokenIsInteger()) {
-            return new IntegerLiteral(Integer.parseInt(consume()));
-        }
-        if (checkTokenIsIdentifier()) {
-            String name = consume();
-            if (match("(")) {
-                return parseFunctionCall(name);
-            }
-            return new Variable(name);
-        }
-        throw new RuntimeException("Unexpected token: " + peek());
+        consume("}");
+        return new AsmStatement(asmCode.toString());
     }
 
     private FunctionCall parseFunctionCall(String name) {
@@ -243,6 +311,7 @@ public class Parser {
     }
 
     // Helper methods
+
     private String consume() {
         return tokens.get(position++);
     }
@@ -268,11 +337,6 @@ public class Parser {
         return !isAtEnd() && tokens.get(position).equals(token);
     }
 
-    private boolean check(int offset, String token) {
-        return position + offset < tokens.size() &&
-                tokens.get(position + offset).equals(token);
-    }
-
     private String peek() {
         return tokens.get(position);
     }
@@ -286,6 +350,6 @@ public class Parser {
     }
 
     private boolean checkTokenIsIdentifier() {
-        return !isAtEnd() && peek().matches("[a-zA-Z_][a-zA-Z0-9_]*");
+        return !isAtEnd() && peek().matches("@?[a-zA-Z_][a-zA-Z0-9_]*");
     }
 }
