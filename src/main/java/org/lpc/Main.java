@@ -9,6 +9,7 @@ import org.lpc.compiler.TriCCompiler;
 import org.lpc.cpu.Cpu;
 import org.lpc.memory.Memory;
 import org.lpc.visual.CpuViewer;
+import org.lpc.visual.FrameBufferViewer;
 import org.lpc.visual.MemoryViewer;
 
 import java.io.InputStream;
@@ -23,13 +24,12 @@ import static org.lpc.memory.MemoryMap.RAM_BASE;
 import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
 public final class Main extends Application {
-    private static final String TRIC_FILE = "/test/test_deref.tric";
-    private static final String TEST_FILE = "/test.asm";
+    private static final String TRIC_FILE = "/test/test_framebuffer.tric";
     private static final String APP_NAME = "Triton-64 VM";
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "VM-Executor");
+    private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "VM-Worker");
         t.setDaemon(true);
         return t;
     });
@@ -138,12 +138,12 @@ public final class Main extends Application {
         validateProgramSize(program);
         loadToRam(program);
 
-        // Launch debug views on JavaFX thread
         Platform.runLater(this::launchDebugViews);
 
-        // Start CPU execution
-        startCpuExecution(program);
+        // Run CPU on background thread
+        executor.submit(() -> runCpuAndShutdown(program));
     }
+
 
     private void validateProgramSize(int[] program) {
         long maxInstructions = RAM_SIZE / Integer.BYTES;
@@ -166,7 +166,7 @@ public final class Main extends Application {
         log("Program loaded to RAM successfully");
     }
 
-    private void startCpuExecution(int[] program) {
+    private void runCpuAndShutdown(int[] program) {
         log("Starting CPU execution...");
 
         try {
@@ -182,39 +182,59 @@ public final class Main extends Application {
             cpu.printRegisters();
 
         } catch (Exception e) {
-            throw new RuntimeException("CPU execution failed: " + e.getMessage(), e);
+            log("CPU execution failed: %s", e.getMessage());
+            e.printStackTrace();
         } finally {
-            // Schedule shutdown on JavaFX thread
-            Platform.runLater(() -> {
+            executor.submit(() -> {
                 try {
-                    Thread.sleep(2000); // Give time to view results
+                    Thread.sleep(2000); // Let user observe output
                 } catch (InterruptedException ignored) {}
-                Platform.exit();
+                Platform.runLater(Platform::exit);
             });
         }
     }
 
-    private Void handleError(Throwable throwable) {
-        logError("Pipeline error", throwable);
 
-        Platform.runLater(() -> {
-            // Show error in UI if needed
-            Platform.exit();
-        });
+    private Void handleError(Throwable throwable) {
+        logError(throwable);
+
+        // Show error in UI if needed
+        Platform.runLater(Platform::exit);
 
         return null;
     }
 
     private void launchDebugViews() {
-        try {
-            log("Launching debug views...");
-            new MemoryViewer(cpu).start(new Stage());
-            new CpuViewer(cpu).start(new Stage());
-            log("Debug views launched");
-        } catch (Exception e) {
-            log("Warning: Could not launch debug views: %s", e.getMessage());
-        }
+        log("Launching debug views...");
+
+        Platform.runLater(() -> {
+            try {
+                new MemoryViewer(cpu).start(new Stage());
+            } catch (Exception e) {
+                log("Warning: Could not launch MemoryViewer: %s", e.getMessage());
+            }
+        });
+
+        Platform.runLater(() -> {
+            try {
+                new CpuViewer(cpu).start(new Stage());
+            } catch (Exception e) {
+                log("Warning: Could not launch CpuViewer: %s", e.getMessage());
+            }
+        });
+
+        Platform.runLater(() -> {
+            try {
+                new FrameBufferViewer(cpu).start(new Stage());
+            } catch (Exception e) {
+                log("Warning: Could not launch FrameBufferViewer: %s", e.getMessage());
+            }
+        });
+
+        log("Debug view launch requests sent");
     }
+
+
 
     @SneakyThrows
     private String loadResource(String resourcePath) {
@@ -258,9 +278,9 @@ public final class Main extends Application {
         System.out.printf("[%s] [%s] %s%n", timestamp, APP_NAME, String.format(format, args));
     }
 
-    private static void logError(String message, Throwable t) {
+    private static void logError(Throwable t) {
         String timestamp = String.format("%tT", System.currentTimeMillis());
-        System.err.printf("[%s] [%s] ERROR: %s%n", timestamp, APP_NAME, message);
+        System.err.printf("[%s] [%s] ERROR: %s%n", timestamp, APP_NAME, "Pipeline error");
         t.printStackTrace(System.err);
     }
 

@@ -24,6 +24,6 @@ public interface AstVisitor<T> {
     T visit(UnaryOp unaryOp);
     T visit(FunctionCall functionCall);
     T visit(Variable variable);
-    T visit(IntegerLiteral integerLiteral);
+    T visit(LongLiteral longLiteral);
     T visit(Dereference dereference);
 }

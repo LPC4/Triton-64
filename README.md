@@ -138,6 +138,8 @@ TriC is a high-level programming language designed specifically for the Triton-6
 - **Control Flow**: Use `if-else` statements and `while` loops for conditional and repetitive execution.
 - **Expressions**: Write complex expressions with arithmetic, logical, and comparison operators.
 - **Function Calls**: Call functions with up to 7 arguments, adhering to the register-based calling convention.
+- **Dereferencing**: Access memory locations using pointers (@ keyword).
+- **Inline Assembly**: Embed raw assembly code within TriC programs for low-level operations.
 
 ### Syntax Examples
 
@@ -250,6 +252,27 @@ func main() {
     var sum = x + y
     var product = x * y
     var factorial = factorial(4)  ; 24
+    
+    ; Memory operations
+    var a = -1 ; test value
+    var fb_start = 0x20220000
+    var fb_size  = 0x10000 ; 64 KiB frame buffer size
+
+    @fb_start = a      ; store the value 0xDEADBEEF at the address stored in a, which is 539099136
+
+    var offset = fb_start;
+    var i = 0
+
+    while (i < 100) {
+        a = a - 1
+        while (offset < fb_size + fb_start) {
+            @offset = a             ; store the value 0xDEADBEEF at the address fb_start + offset
+            offset = offset + 8     ; increment offset by 4 bytes
+        }
+        offset = fb_start ; reset offset to the start of the frame buffer
+        i = i + 1
+    }
+
 
     ; Return the total of all operations
     return sum + product + fact + z  ; 15 + 50 + 120 + 5 = 190 stored in a0
@@ -265,7 +288,7 @@ func factorial(n) {
 }
 ```
 
-This program showcases variable usage, control flow, function definitions, and recursive function calls. After execution, the result (190) is stored in the `a0` register.
+This program showcases variable usage, control flow, function definitions, recursive function calls and memory operations. After execution, the result (190) is stored in the `a0` register.
 
 ## System Components
 

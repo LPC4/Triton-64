@@ -191,12 +191,12 @@ public class Parser {
             return new Dereference(address);
         }
         if (checkTokenIsInteger()) {
-            return new IntegerLiteral(Integer.parseInt(consume()));
+            return new LongLiteral(Long.parseLong(consume()));
         }
         if (checkTokenIsHex()) {
             String hexValue = consume();
             if (hexValue.startsWith("0x") || hexValue.startsWith("0X")) {
-                return new IntegerLiteral(Integer.parseInt(hexValue.substring(2), 16));
+                return new LongLiteral(Long.parseLong(hexValue.substring(2), 16));
             }
             throw new RuntimeException("Invalid hex literal: " + hexValue);
         }

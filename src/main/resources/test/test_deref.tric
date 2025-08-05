@@ -1,17 +1,14 @@
 func main() {
-    var a = -1 ; test value
+    var a = 0xFFFF0000 ; AARRGGBB
     var fb_start = 0x20220000
-    var fb_size  = 0x10000 ; 64 KiB frame buffer size
+    var fb_size  = 307200
 
-    @fb_start = a      ; store the value 0xDEADBEEF at the address stored in a, which is 539099136
-
-    var offset = fb_start;
-
+    var offset = fb_start
     while (1) {
-        a = a - 1
+        ;a = a - 1
         while (offset < fb_size + fb_start) {
             @offset = a             ; store the value 0xDEADBEEF at the address fb_start + offset
-            offset = offset + 8     ; increment offset by 4 bytes
+            offset = offset + 4     ; increment offset by 4 bytes
         }
         offset = fb_start ; reset offset to the start of the frame buffer
     }

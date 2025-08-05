@@ -255,9 +255,9 @@ public class CodeGenerator implements AstVisitor<String> {
     }
 
     @Override
-    public String visit(IntegerLiteral integerLiteral) {
+    public String visit(LongLiteral longLiteral) {
         String reg = registerManager.allocateRegister();
-        emitter.instruction("LDI", reg, String.valueOf(integerLiteral.value));
+        emitter.instruction("LDI", reg, String.valueOf(longLiteral.value));
         return reg;
     }
 

@@ -5,9 +5,9 @@ import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 
 @ToString
-public class IntegerLiteral extends Expression {
-    public final int value;
-    public IntegerLiteral(int value) {
+public class LongLiteral extends Expression {
+    public final long value;
+    public LongLiteral(long value) {
         this.value = value;
     }
     @Override
