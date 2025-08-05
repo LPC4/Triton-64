@@ -24,6 +24,7 @@ import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
 public final class Main extends Application {
     private static final String TRIC_FILE = "/test/test.tric";
+    private static final String TEST_FILE = "/test.asm";
     private static final String APP_NAME = "Triton-64 VM";
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 
@@ -78,7 +79,7 @@ public final class Main extends Application {
             List<String> compiledCode = compileTricCode();
             log("TriC compilation completed (%d lines)", compiledCode.size());
 
-            // Step 2: Assemble the compiled code directly (no file I/O)
+            // Step 2: Assemble the compiled code directly
             log("Step 2: Assembling program...");
             int[] program = assembleProgram(compiledCode);
             log("Assembly completed (%d instructions)", program.length);
@@ -110,7 +111,6 @@ public final class Main extends Application {
 
             // Assemble directly from the string
             return new Assembler().assemble(assemblyCode);
-
         } catch (Exception e) {
             throw new RuntimeException("Assembly failed: " + e.getMessage(), e);
         }

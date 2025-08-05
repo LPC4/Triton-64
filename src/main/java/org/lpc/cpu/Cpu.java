@@ -66,12 +66,14 @@ public class Cpu {
             case InstructionSet.OP_SHL -> set(dest, get(src1) << get(src2));
             case InstructionSet.OP_SHR -> set(dest, get(src1) >>> get(src2));
             case InstructionSet.OP_SAR -> set(dest, get(src1) >> get(src2));
+            // PC already incremented by 4 so can use it directly
+            // fuckass bug
             case InstructionSet.OP_JMP -> programCounter = get(dest);
             case InstructionSet.OP_JZ  -> { if (get(src1) == 0) programCounter = get(dest); }
             case InstructionSet.OP_JNZ -> { if (get(src1) != 0) programCounter = get(dest); }
             case InstructionSet.OP_JPP -> { if (get(src1) > 0) programCounter = get(dest); }
             case InstructionSet.OP_JPN -> { if (get(src1) < 0) programCounter = get(dest); }
-            case InstructionSet.OP_JAL -> { set(src1, programCounter + 4); programCounter = get(dest);}
+            case InstructionSet.OP_JAL -> { set(src1, programCounter); programCounter = get(dest);}
             case InstructionSet.OP_LD  -> set(dest, memory.readLong(get(src1)));
             case InstructionSet.OP_ST  -> memory.writeLong(get(dest), get(src1));
             case InstructionSet.OP_LDI -> set(dest, imm);
