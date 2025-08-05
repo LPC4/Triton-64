@@ -95,9 +95,7 @@ public class FrameBufferViewer {
     private void renderFrameBuffer(GraphicsContext gc) {
         try {
             byte[] bgra = new byte[FB_SIZE];
-            for (int i = 0; i < FB_SIZE; i++) {
-                bgra[i] = memory.readByte(MemoryMap.FB_BASE + i);
-            }
+            memory.readBytes(MemoryMap.FB_BASE, bgra, 0, FB_SIZE);
 
             PixelWriter pw = image.getPixelWriter();
             pw.setPixels(

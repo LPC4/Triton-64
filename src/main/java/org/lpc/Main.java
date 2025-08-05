@@ -24,7 +24,7 @@ import static org.lpc.memory.MemoryMap.RAM_BASE;
 import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
 public final class Main extends Application {
-    private static final String TRIC_FILE = "/test/test_framebuffer.tric";
+    private static final String TRIC_FILE = "/test/test_deref.tc";
     private static final String APP_NAME = "Triton-64 VM";
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 

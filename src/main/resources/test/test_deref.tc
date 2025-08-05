@@ -1,0 +1,7 @@
+func main() {
+    var fb_start = 0x20220000
+
+    @fb_start = 0xDEADBEEF
+
+    return @fb_start ; a0 = 0xDEADBEEF
+}

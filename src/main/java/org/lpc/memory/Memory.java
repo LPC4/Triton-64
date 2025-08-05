@@ -25,7 +25,6 @@ public class Memory {
             );
         }
 
-        // Use ByteBuffer for better endianness handling
         this.buffer = ByteBuffer.allocate((int) MemoryMap.TOTAL_SIZE)
                 .order(ByteOrder.LITTLE_ENDIAN);
     }

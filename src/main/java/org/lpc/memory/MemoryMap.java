@@ -16,7 +16,7 @@ public final class MemoryMap {
     public static final long MMIO_SIZE = 2 * 1024 * 1024;                // 2 MB MMIO
 
     public static final long FB_BASE = MMIO_BASE + MMIO_SIZE;            // Framebuffer starts after MMIO
-    public static final long FB_SIZE = 16 * 1024 * 1024;                 // 16 MB framebuffer
+    public static final long FB_SIZE = 16 * 1024 * 1024;                 // 16 MB framebuffer (maximum size)
 
     // The stack and heap share a combined space in RAM
     public static final long STACK_HEAP_SIZE = 128L * 1024 * 1024;       // 128 MB stack+heap
