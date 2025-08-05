@@ -14,13 +14,29 @@ public class Lexer {
     public List<String> tokenize() {
         List<String> tokens = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
+        boolean inAsmBlock = false;
 
         while (position < input.length()) {
+            if (inAsmBlock) {
+                StringBuilder line = new StringBuilder();
+                while (position < input.length() && input.charAt(position) != '\n') {
+                    line.append(input.charAt(position++));
+                }
+                position++; // skip newline
+                String token = line.toString().trim();
+                if (!token.isEmpty()) {
+                    tokens.add(token);
+                    if (token.equals("}")) {
+                        inAsmBlock = false;
+                    }
+                }
+                continue;
+            }
+
             char c = input.charAt(position);
 
-            // Handle comments (semicolons)
+            // Skip comments
             if (c == ';') {
-                // Skip everything until end of line
                 while (position < input.length() && input.charAt(position) != '\n') {
                     position++;
                 }
@@ -29,47 +45,35 @@ public class Lexer {
 
             if (Character.isWhitespace(c)) {
                 if (!currentToken.isEmpty()) {
-                    tokens.add(currentToken.toString());
+                    String token = currentToken.toString();
+                    tokens.add(token);
+                    if (token.equals("asm") && peekNextNonWhitespace() == '{') {
+                        tokens.add("{");
+                        position = skipWhitespace(position + 1);
+                        inAsmBlock = true;
+                    }
                     currentToken.setLength(0);
                 }
                 position++;
-            }
-            else if (isSpecialChar(c)) {
+            } else if (isSpecialChar(c)) {
                 if (!currentToken.isEmpty()) {
                     tokens.add(currentToken.toString());
                     currentToken.setLength(0);
                 }
-                // Handle multi-character operators (like <=, >=, ==, !=)
-                if (c == '<' && peekNext() == '=') {
-                    tokens.add("<=");
+                if ((c == '<' || c == '>' || c == '=' || c == '!' || c == '&' || c == '|') && peekNext() == '=') {
+                    tokens.add("" + c + '=');
                     position += 2;
-                }
-                else if (c == '>' && peekNext() == '=') {
-                    tokens.add(">=");
-                    position += 2;
-                }
-                else if (c == '=' && peekNext() == '=') {
-                    tokens.add("==");
-                    position += 2;
-                }
-                else if (c == '!' && peekNext() == '=') {
-                    tokens.add("!=");
-                    position += 2;
-                }
-                else if (c == '&' && peekNext() == '&') {
+                } else if (c == '&' && peekNext() == '&') {
                     tokens.add("&&");
                     position += 2;
-                }
-                else if (c == '|' && peekNext() == '|') {
+                } else if (c == '|' && peekNext() == '|') {
                     tokens.add("||");
                     position += 2;
-                }
-                else {
+                } else {
                     tokens.add(String.valueOf(c));
                     position++;
                 }
-            }
-            else {
+            } else {
                 currentToken.append(c);
                 position++;
             }
@@ -87,6 +91,21 @@ public class Lexer {
             return input.charAt(position + 1);
         }
         return '\0';
+    }
+
+    private char peekNextNonWhitespace() {
+        int i = position + 1;
+        while (i < input.length() && Character.isWhitespace(input.charAt(i))) {
+            i++;
+        }
+        return i < input.length() ? input.charAt(i) : '\0';
+    }
+
+    private int skipWhitespace(int i) {
+        while (i < input.length() && Character.isWhitespace(input.charAt(i))) {
+            i++;
+        }
+        return i;
     }
 
     private boolean isSpecialChar(char c) {

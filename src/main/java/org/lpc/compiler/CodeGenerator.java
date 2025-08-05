@@ -168,6 +168,15 @@ public class CodeGenerator implements AstVisitor<String> {
     }
 
     @Override
+    public String visit(AsmStatement asmStatement) {
+        emitter.comment("Inline assembly statement");
+        for (String line : asmStatement.asmCode) {
+            emitter.instruction(line.trim());
+        }
+        return null;
+    }
+
+    @Override
     public String visit(Variable variable) {
         int offset = stackManager.getVariableOffset(variable.name);
         return stackManager.loadFromStack(offset);

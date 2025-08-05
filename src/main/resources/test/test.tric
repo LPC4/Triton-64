@@ -6,12 +6,12 @@ func main() {
 
     c = subbig(a, b) ; 100
 
-    while (c < 1000) { ; d = 900
+    while (c < 100000) { ; d = 99900
         d = add(d, 1)
         c = c + 1
     }
 
-    return d ; a0 = 900
+    return d ; a0 = d
 }
 
 func add(x, y) {

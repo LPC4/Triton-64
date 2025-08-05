@@ -66,6 +66,7 @@ public class Parser {
         if (match("return")) return parseReturnStatement();
         if (match("while")) return parseWhileStatement();
         if (match("var")) return parseDeclaration();
+        if (match("asm")) return parseAsmStatement();
         if (checkTokenIsIdentifier() && check(1, "=")) {
             return parseAssignment();
         }
@@ -74,6 +75,17 @@ public class Parser {
             return new ExpressionStatement(expr);
         }
         throw new RuntimeException("Invalid statement: " + expr);
+    }
+
+    private Statement parseAsmStatement() {
+        consume("{");
+        StringBuilder asmCode = new StringBuilder();
+        while (!check("}")) {
+            String token = consume();
+            asmCode.append(token).append("\n");
+        }
+        consume("}");
+        return new AsmStatement(asmCode.toString());
     }
 
     private Statement parseIfStatement() {

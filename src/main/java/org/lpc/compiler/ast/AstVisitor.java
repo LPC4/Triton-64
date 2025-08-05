@@ -17,6 +17,7 @@ public interface AstVisitor<T> {
     T visit(Declaration declaration);
     T visit(AssignmentStatement assignmentStatement);
     T visit(ExpressionStatement expressionStatement);
+    T visit(AsmStatement asmStatement);
 
     // Expressions
     T visit(BinaryOp binaryOp);
