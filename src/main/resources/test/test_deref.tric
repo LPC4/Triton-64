@@ -1,11 +1,20 @@
 func main() {
-    var b = -1 ; test value
-    var a = 539099136  ; address to dereference, this is a constant address in Triton-C
+    var a = -1 ; test value
+    var fb_start = 0x20220000
+    var fb_size  = 0x10000 ; 64 KiB frame buffer size
 
-    @a = b      ; store the value 0xDEADBEEF at the address stored in a, which is 539099136
-    var c = @a  ; dereference the address stored in a, c should now be 0xDEADBEEF
+    @fb_start = a      ; store the value 0xDEADBEEF at the address stored in a, which is 539099136
 
-    ;while (1) {}
+    var offset = fb_start;
 
-    return c
+    while (1) {
+        a = a - 1
+        while (offset < fb_size + fb_start) {
+            @offset = a             ; store the value 0xDEADBEEF at the address fb_start + offset
+            offset = offset + 8     ; increment offset by 4 bytes
+        }
+        offset = fb_start ; reset offset to the start of the frame buffer
+    }
+
+    return
 }

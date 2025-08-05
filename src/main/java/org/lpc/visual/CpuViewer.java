@@ -30,15 +30,15 @@ public class CpuViewer {
         root.setPadding(new Insets(20));
         root.setStyle("-fx-background-color: " + Colors.BACKGROUND + ";");
         root.getChildren().addAll(
-                Styles.title("Cpu State Monitor"),
+                Styles.title("CPU State Monitor"),
                 createRegistersSection(),
                 createControlRegistersSection()
         );
 
         startAutoRefresh();
 
-        stage.setTitle("Cpu Viewer - Debug Monitor");
-        stage.setScene(new Scene(root, 700, 650));
+        stage.setTitle("CPU Viewer - Debug Monitor");
+        stage.setScene(new Scene(root, 850, 700));  // Increased window width
         stage.show();
     }
 
@@ -60,10 +60,21 @@ public class CpuViewer {
         section.getChildren().addAll(Styles.sectionHeader("📊 General Purpose Registers"));
 
         GridPane grid = new GridPane();
-        grid.setHgap(15);
-        grid.setVgap(8);
+        grid.setHgap(25);  // Increased horizontal gap
+        grid.setVgap(10);  // Increased vertical gap
         grid.setPadding(new Insets(15));
         grid.setStyle(Styles.cardStyle());
+
+        // Set column constraints to ensure proper spacing
+        ColumnConstraints nameCol = new ColumnConstraints();
+        nameCol.setMinWidth(10);  // Wider for register names
+        ColumnConstraints valueCol = new ColumnConstraints();
+        valueCol.setMinWidth(150); // Much wider for 64-bit values
+
+        // Apply column constraints to all columns (4 pairs of name+value columns)
+        for (int i = 0; i < 8; i++) {
+            grid.getColumnConstraints().addAll(nameCol, valueCol);
+        }
 
         for (int i = 0; i < 32; i++) {
             Label name = Styles.monoLabel(RegisterInfo.REG_NAMES[i]);
@@ -71,7 +82,7 @@ public class CpuViewer {
             registerLabels[i] = value;
 
             int row = i / 4;
-            int col = (i % 4) * 2;
+            int col = (i % 4) * 2;  // Each register takes 2 columns (name + value)
 
             grid.add(name, col, row);
             grid.add(value, col + 1, row);
@@ -81,22 +92,22 @@ public class CpuViewer {
         return section;
     }
 
-
     private VBox createControlRegistersSection() {
         VBox section = new VBox(10);
         section.getChildren().addAll(Styles.sectionHeader("🎛 Control Registers"));
 
         GridPane grid = new GridPane();
-        grid.setHgap(15);
-        grid.setVgap(12);
+        grid.setHgap(5);  // Increased gap
+        grid.setVgap(15);   // Increased gap
         grid.setPadding(new Insets(15));
         grid.setStyle(Styles.cardStyle());
 
         addControlRow(grid, "Program Counter (PC):", programCounterLabel, 0);
 
         ColumnConstraints c1 = new ColumnConstraints();
-        c1.setMinWidth(150);
+        c1.setMinWidth(180);  // Wider label column
         ColumnConstraints c2 = new ColumnConstraints();
+        c2.setMinWidth(200);  // Wider value column for 64-bit addresses
         c2.setHgrow(Priority.ALWAYS);
         grid.getColumnConstraints().addAll(c1, c2);
 
@@ -112,11 +123,13 @@ public class CpuViewer {
 
     public void refresh() {
         Platform.runLater(() -> {
-            for (int i = 0; i < 32; i++) { // Adjusted for 32 registers
-                registerLabels[i].setText(String.format("0x%08X", cpu.getRegister(i)));
+            for (int i = 0; i < 32; i++) {
+                // Display as 64-bit hex value
+                registerLabels[i].setText(String.format("0x%016X", cpu.getRegister(i)));
             }
 
-            programCounterLabel.setText(String.format("0x%08X", cpu.getProgramCounter()));
+            // Display PC as 64-bit hex value
+            programCounterLabel.setText(String.format("0x%016X", cpu.getProgramCounter()));
         });
     }
 }

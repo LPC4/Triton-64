@@ -131,26 +131,8 @@ public class Parser {
         return left;
     }
 
-    private Expression parseLogicalAnd(Expression left) {
-        while (match("&&")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseEquality();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
     private Expression parseEquality() {
         Expression left = parseComparison();
-        while (match("==", "!=")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseComparison();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseEquality(Expression left) {
         while (match("==", "!=")) {
             String operator = tokens.get(position - 1);
             Expression right = parseComparison();
@@ -169,15 +151,6 @@ public class Parser {
         return left;
     }
 
-    private Expression parseComparison(Expression left) {
-        while (match("<=", ">=", "<", ">")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseAdditive();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
     private Expression parseAdditive() {
         Expression left = parseMultiplicative();
         while (match("+", "-")) {
@@ -188,26 +161,8 @@ public class Parser {
         return left;
     }
 
-    private Expression parseAdditive(Expression left) {
-        while (match("+", "-")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseMultiplicative();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
     private Expression parseMultiplicative() {
         Expression left = parseUnary();
-        while (match("*", "/", "%")) {
-            String operator = tokens.get(position - 1);
-            Expression right = parseUnary();
-            left = new BinaryOp(operator, left, right);
-        }
-        return left;
-    }
-
-    private Expression parseMultiplicative(Expression left) {
         while (match("*", "/", "%")) {
             String operator = tokens.get(position - 1);
             Expression right = parseUnary();
@@ -237,6 +192,13 @@ public class Parser {
         }
         if (checkTokenIsInteger()) {
             return new IntegerLiteral(Integer.parseInt(consume()));
+        }
+        if (checkTokenIsHex()) {
+            String hexValue = consume();
+            if (hexValue.startsWith("0x") || hexValue.startsWith("0X")) {
+                return new IntegerLiteral(Integer.parseInt(hexValue.substring(2), 16));
+            }
+            throw new RuntimeException("Invalid hex literal: " + hexValue);
         }
         if (checkTokenIsIdentifier()) {
             String name = consume();
@@ -351,5 +313,9 @@ public class Parser {
 
     private boolean checkTokenIsIdentifier() {
         return !isAtEnd() && peek().matches("@?[a-zA-Z_][a-zA-Z0-9_]*");
+    }
+
+    private boolean checkTokenIsHex() {
+        return !isAtEnd() && peek().matches("0x[0-9a-fA-F]+") || peek().matches("0X[0-9a-fA-F]+");
     }
 }
