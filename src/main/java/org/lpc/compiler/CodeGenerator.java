@@ -66,8 +66,6 @@ public class CodeGenerator implements AstVisitor<String> {
 
     @Override
     public String visit(FunctionDef functionDef) {
-        emitter.comment("Function: " + functionDef.name);
-
         try {
             currentFunctionEndLabel = ctx.generateLabel(functionDef.name + "_end");
 

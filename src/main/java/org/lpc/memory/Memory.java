@@ -1,247 +1,320 @@
 package org.lpc.memory;
 
+import lombok.Getter;
+import org.lpc.io.IODevice;
+import org.lpc.io.IODeviceManager;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Objects;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.StampedLock;
 
-/**
- * Simulates physical memory layout consisting of ROM, RAM, MMIO, and framebuffer.
- * All memory is backed by a single byte array with ByteBuffer for endianness handling.
- * Thread-safe implementation using ReadWriteLock for better concurrent performance.
- * Addresses must be within defined memory regions.
- * All multi-byte values use little-endian byte order.
- */
 public class Memory {
     private final ByteBuffer buffer;
-    private final ReadWriteLock lock = new ReentrantReadWriteLock();
+    private final StampedLock lock = new StampedLock();
+    private final IODeviceManager ioDeviceManager;
+    @Getter
+    private volatile boolean initialized = false;
 
     @SuppressWarnings("ConstantValue")
-    public Memory() {
+    public Memory(IODeviceManager ioDeviceManager) {
+        this.ioDeviceManager = Objects.requireNonNull(ioDeviceManager,
+                "IODeviceManager cannot be null");
+
         if (MemoryMap.TOTAL_SIZE > Integer.MAX_VALUE) {
             throw new IllegalStateException(
-                    String.format("Memory size (%d bytes) exceeds maximum array size", MemoryMap.TOTAL_SIZE)
-            );
+                    "Memory size too large: " + MemoryMap.TOTAL_SIZE);
         }
 
         this.buffer = ByteBuffer.allocate((int) MemoryMap.TOTAL_SIZE)
                 .order(ByteOrder.LITTLE_ENDIAN);
     }
 
-    /**
-     * Converts a memory address to an offset in the byte array.
-     * @param address the memory address
-     * @return the array offset
-     * @throws IllegalArgumentException if address is out of bounds
-     */
-    private int toOffset(long address) {
-        if (!MemoryMap.isValidAddress(address)) {
-            throw new IllegalArgumentException(
-                    String.format("Invalid memory address: 0x%016X", address)
-            );
+    private int toInt(long address) {
+        if (address < 0 || address >= MemoryMap.TOTAL_SIZE) {
+            throw new MemoryException("Invalid address: 0x" + Long.toHexString(address));
         }
-        return (int) address;  // Direct mapping since we start at 0
+        return (int) address;
     }
 
-    /**
-     * Validates that a memory range doesn't exceed bounds.
-     */
     private void validateRange(long address, int size) {
-        if (address < 0 || address + size > MemoryMap.TOTAL_SIZE) {
-            throw new IllegalArgumentException(
-                    String.format("Memory range [0x%016X, 0x%016X) exceeds bounds",
-                            address, address + size)
-            );
+        if (size < 0) throw new MemoryException("Negative size");
+        if (address < 0 || address > MemoryMap.TOTAL_SIZE - size) {
+            throw new MemoryException("Address range overflow");
         }
     }
 
-    /**
-     * Checks if writing to the given address is allowed.
-     */
-    private void validateWrite(long address) {
-        if (MemoryMap.isRomAddress(address)) {
-            throw new IllegalArgumentException(
-                    String.format("Cannot write to ROM at address: 0x%016X", address)
-            );
+    private void validateWrite(long address, int size) {
+        if (address < MemoryMap.ROM_END && address + size > MemoryMap.ROM_BASE) {
+            throw new MemoryException("Cannot write to ROM");
         }
     }
 
-    // Read operations use read lock for better concurrency
+    private MmioResult handleMmioRead(long address) {
+        if (!MemoryMap.isMmioAddress(address)) return MmioResult.NOT_HANDLED;
 
+        IODevice device = ioDeviceManager.getDeviceByAddress(address);
+        if (device == null) return MmioResult.NOT_HANDLED;
+
+        long deviceOffset = address - device.getAddress();
+        return new MmioResult(true, device.handleRead(deviceOffset, 1));
+    }
+
+    private boolean handleMmioWrite(long address, int size, long value) {
+        if (!MemoryMap.isMmioAddress(address)) return false;
+
+        IODevice device = ioDeviceManager.getDeviceByAddress(address);
+        if (device == null) return true; // Ignore writes to unmapped MMIO
+
+        long deviceOffset = address - device.getAddress();
+        return device.handleWrite(deviceOffset, size, value);
+    }
+
+    // Read operations
     public byte readByte(long address) {
-        lock.readLock().lock();
-        try {
-            return buffer.get(toOffset(address));
-        } finally {
-            lock.readLock().unlock();
-        }
+        return (byte) readWithLock(address, this::readByteUnsafe);
     }
 
     public short readShort(long address) {
-        lock.readLock().lock();
-        try {
-            validateRange(address, Short.BYTES);
-            return buffer.getShort(toOffset(address));
-        } finally {
-            lock.readLock().unlock();
-        }
+        return (short) readWithLock(address, this::readShortUnsafe);
     }
 
     public int readInt(long address) {
-        lock.readLock().lock();
-        try {
-            validateRange(address, Integer.BYTES);
-            return buffer.getInt(toOffset(address));
-        } finally {
-            lock.readLock().unlock();
-        }
+        return (int) readWithLock(address, this::readIntUnsafe);
     }
 
     public long readLong(long address) {
-        lock.readLock().lock();
-        try {
-            validateRange(address, Long.BYTES);
-            return buffer.getLong(toOffset(address));
-        } finally {
-            lock.readLock().unlock();
-        }
+        return readWithLock(address, this::readLongUnsafe);
     }
 
-    /**
-     * Reads a block of bytes from memory.
-     * @param address starting address
-     * @param dest destination array
-     * @param offset offset in destination array
-     * @param length number of bytes to read
-     * @throws IllegalArgumentException if parameters are invalid
-     */
+    private long readWithLock(long address, ReadFunction readFunc) {
+        long stamp = lock.tryOptimisticRead();
+        long result = readFunc.read(address);
+
+        if (!lock.validate(stamp)) {
+            stamp = lock.readLock();
+            try {
+                result = readFunc.read(address);
+            } finally {
+                lock.unlockRead(stamp);
+            }
+        }
+        return result;
+    }
+
+    private long readByteUnsafe(long address) {
+        MmioResult mmio = handleMmioRead(address);
+        if (mmio.handled) return mmio.value & 0xFF;
+        return buffer.get(toInt(address)) & 0xFF;
+    }
+
+    private long readShortUnsafe(long address) {
+        validateRange(address, Short.BYTES);
+        MmioResult mmio = handleMmioRead(address);
+        if (mmio.handled) return mmio.value & 0xFFFF;
+        return buffer.getShort(toInt(address)) & 0xFFFF;
+    }
+
+    private long readIntUnsafe(long address) {
+        validateRange(address, Integer.BYTES);
+        MmioResult mmio = handleMmioRead(address);
+        if (mmio.handled) return mmio.value;
+        return buffer.getInt(toInt(address));
+    }
+
+    private long readLongUnsafe(long address) {
+        validateRange(address, Long.BYTES);
+        MmioResult mmio = handleMmioRead(address);
+        if (mmio.handled) return mmio.value;
+        return buffer.getLong(toInt(address));
+    }
+
     public void readBytes(long address, byte[] dest, int offset, int length) {
-        Objects.requireNonNull(dest, "Destination array cannot be null");
+        Objects.requireNonNull(dest, "Destination array is null");
         if (offset < 0 || length < 0 || offset + length > dest.length) {
-            throw new IllegalArgumentException("Invalid destination array bounds");
+            throw new MemoryException("Invalid array bounds");
         }
+        if (length == 0) return;
 
-        lock.readLock().lock();
+        long stamp = lock.readLock();
         try {
-            validateRange(address, length);
-            int memOffset = toOffset(address);
-            System.arraycopy(buffer.array(), memOffset, dest, offset, length);
+            readBytesUnsafe(address, dest, offset, length);
         } finally {
-            lock.readLock().unlock();
+            lock.unlockRead(stamp);
         }
     }
 
-    // Write operations use write lock
+    private void readBytesUnsafe(long address, byte[] dest, int offset, int length) {
+        validateRange(address, length);
+
+        if (!MemoryMap.isMmioAddress(address) &&
+                !MemoryMap.isMmioAddress(address + length - 1)) {
+            // Fast path: Entire block in normal memory
+            int memOffset = toInt(address);
+            System.arraycopy(buffer.array(), memOffset, dest, offset, length);
+        } else {
+            // Slow path: MMIO region
+            for (int i = 0; i < length; i++) {
+                dest[offset + i] = (byte) readByteUnsafe(address + i);
+            }
+        }
+    }
+
+    // Write operations
     public void writeByte(long address, byte value) {
-        lock.writeLock().lock();
+        long stamp = lock.writeLock();
         try {
-            validateWrite(address);
-            buffer.put(toOffset(address), value);
+            writeByteUnsafe(address, value);
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     public void writeShort(long address, short value) {
-        lock.writeLock().lock();
+        long stamp = lock.writeLock();
         try {
-            validateWrite(address);
-            validateRange(address, Short.BYTES);
-            buffer.putShort(toOffset(address), value);
+            writeShortUnsafe(address, value);
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     public void writeInt(long address, int value) {
-        lock.writeLock().lock();
+        long stamp = lock.writeLock();
         try {
-            validateWrite(address);
-            validateRange(address, Integer.BYTES);
-            buffer.putInt(toOffset(address), value);
+            writeIntUnsafe(address, value);
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
     public void writeLong(long address, long value) {
-        lock.writeLock().lock();
+        long stamp = lock.writeLock();
         try {
-            validateWrite(address);
-            validateRange(address, Long.BYTES);
-            buffer.putLong(toOffset(address), value);
+            writeLongUnsafe(address, value);
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
-    /**
-     * Writes a block of bytes to memory.
-     * @param address starting address
-     * @param src source array
-     * @param offset offset in source array
-     * @param length number of bytes to write
-     * @throws IllegalArgumentException if parameters are invalid
-     */
+    private void writeByteUnsafe(long address, byte value) {
+        validateWrite(address, Byte.BYTES);
+        if (!handleMmioWrite(address, Byte.BYTES, value & 0xFF)) {
+            buffer.put(toInt(address), value);
+        }
+    }
+
+    private void writeShortUnsafe(long address, short value) {
+        validateWrite(address, Short.BYTES);
+        validateRange(address, Short.BYTES);
+        if (!handleMmioWrite(address, Short.BYTES, value & 0xFFFF)) {
+            buffer.putShort(toInt(address), value);
+        }
+    }
+
+    private void writeIntUnsafe(long address, int value) {
+        validateWrite(address, Integer.BYTES);
+        validateRange(address, Integer.BYTES);
+        if (!handleMmioWrite(address, Integer.BYTES, value)) {
+            buffer.putInt(toInt(address), value);
+        }
+    }
+
+    private void writeLongUnsafe(long address, long value) {
+        validateWrite(address, Long.BYTES);
+        validateRange(address, Long.BYTES);
+        if (!handleMmioWrite(address, Long.BYTES, value)) {
+            buffer.putLong(toInt(address), value);
+        }
+    }
+
     public void writeBytes(long address, byte[] src, int offset, int length) {
-        Objects.requireNonNull(src, "Source array cannot be null");
+        Objects.requireNonNull(src, "Source array is null");
         if (offset < 0 || length < 0 || offset + length > src.length) {
-            throw new IllegalArgumentException("Invalid source array bounds");
+            throw new MemoryException("Invalid array bounds");
         }
+        if (length == 0) return;
 
-        lock.writeLock().lock();
+        long stamp = lock.writeLock();
         try {
-            validateWrite(address);
-            validateRange(address, length);
-            int memOffset = toOffset(address);
-            System.arraycopy(src, offset, buffer.array(), memOffset, length);
+            writeBytesUnsafe(address, src, offset, length);
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
-    /**
-     * Fills a memory region with a specific byte value.
-     * @param address starting address
-     * @param length number of bytes to fill
-     * @param value the byte value to fill with
-     */
-    public void fill(long address, int length, byte value) {
-        lock.writeLock().lock();
-        try {
-            validateWrite(address);
-            validateRange(address, length);
-            int offset = toOffset(address);
+    private void writeBytesUnsafe(long address, byte[] src, int offset, int length) {
+        validateWrite(address, length);
+        validateRange(address, length);
+
+        if (!MemoryMap.isMmioAddress(address) &&
+                !MemoryMap.isMmioAddress(address + length - 1)) {
+            // Fast path: Entire block in normal memory
+            int memOffset = toInt(address);
+            System.arraycopy(src, offset, buffer.array(), memOffset, length);
+        } else {
+            // Slow path: MMIO region
             for (int i = 0; i < length; i++) {
-                buffer.put(offset + i, value);
+                writeByteUnsafe(address + i, src[offset + i]);
+            }
+        }
+    }
+
+    public void fill(long address, int length, byte value) {
+        if (length <= 0) return;
+
+        long stamp = lock.writeLock();
+        try {
+            validateWrite(address, length);
+            validateRange(address, length);
+
+            if (!MemoryMap.isMmioAddress(address) &&
+                    !MemoryMap.isMmioAddress(address + length - 1)) {
+                // Fast path: Entire block in normal memory
+                int memOffset = toInt(address);
+                byte[] array = buffer.array();
+                Arrays.fill(array, memOffset, memOffset + length, value);
+            } else {
+                // Slow path: MMIO region
+                for (int i = 0; i < length; i++) {
+                    writeByteUnsafe(address + i, value);
+                }
             }
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
         }
     }
 
-    /**
-     * Initializes ROM with the provided data. This method bypasses the normal
-     * ROM write protection and should only be called during system initialization.
-     * @param romData the ROM data to write
-     * @throws IllegalArgumentException if ROM data is too large or null
-     */
     public void initializeROM(byte[] romData) {
-        Objects.requireNonNull(romData, "ROM data cannot be null");
+        Objects.requireNonNull(romData, "ROM data is null");
         if (romData.length > MemoryMap.ROM_SIZE) {
-            throw new IllegalArgumentException(
-                    String.format("ROM data too large: %d bytes, maximum %d bytes",
-                            romData.length, MemoryMap.ROM_SIZE)
-            );
+            throw new MemoryException("ROM data too large");
         }
 
-        lock.writeLock().lock();
+        long stamp = lock.writeLock();
         try {
-            // Direct access to underlying array for ROM initialization
+            if (initialized) throw new MemoryException("ROM already initialized");
             System.arraycopy(romData, 0, buffer.array(), 0, romData.length);
+            initialized = true;
         } finally {
-            lock.writeLock().unlock();
+            lock.unlockWrite(stamp);
+        }
+    }
+
+    // Helper classes
+    @FunctionalInterface
+    private interface ReadFunction {
+        long read(long address);
+    }
+
+    private record MmioResult(boolean handled, long value) {
+        static final MmioResult NOT_HANDLED = new MmioResult(false, 0);
+    }
+
+    public static class MemoryException extends RuntimeException {
+        public MemoryException(String message) {
+            super(message);
         }
     }
 }

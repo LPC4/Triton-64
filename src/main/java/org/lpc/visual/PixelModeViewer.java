@@ -19,24 +19,21 @@ import org.lpc.memory.Memory;
 import org.lpc.memory.MemoryMap;
 import org.lpc.visual.style.Colors;
 import org.lpc.visual.style.Fonts;
-import org.lpc.visual.style.Styles;
 
-public class FrameBufferViewer {
+public class PixelModeViewer {
     // 320x240 resolution with RGBA (4 bytes per pixel)
     private static final int WIDTH = 320;
     private static final int HEIGHT = 240;
     private static final int BYTES_PER_PIXEL = 4; // RGBA
     private static final int FB_SIZE = WIDTH * HEIGHT * BYTES_PER_PIXEL; // 320*240*4 = 307,200 bytes
 
-    private final Cpu cpu;
     private final Memory memory;
 
     private long lastUpdate = 0;
     private WritableImage image = new WritableImage(WIDTH, HEIGHT);
 
 
-    public FrameBufferViewer(Cpu cpu) {
-        this.cpu = cpu;
+    public PixelModeViewer(Cpu cpu) {
         this.memory = cpu.getMemory();
     }
 
@@ -44,7 +41,7 @@ public class FrameBufferViewer {
         BorderPane root = new BorderPane();
         root.setStyle("-fx-background-color: #f8f9fa;");
 
-        Label title = new Label("🖥️ FrameBuffer Viewer (RGBA)");
+        Label title = new Label("🖥 FrameBuffer Viewer (RGBA)");
         title.setFont(Fonts.TITLE);
         title.setTextFill(Color.web(Colors.TEXT));
         title.setAlignment(Pos.CENTER);

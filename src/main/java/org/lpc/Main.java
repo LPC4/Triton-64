@@ -7,10 +7,12 @@ import lombok.SneakyThrows;
 import org.lpc.assembler.Assembler;
 import org.lpc.compiler.TriCCompiler;
 import org.lpc.cpu.Cpu;
+import org.lpc.io.IODeviceManager;
 import org.lpc.memory.Memory;
 import org.lpc.visual.CpuViewer;
-import org.lpc.visual.FrameBufferViewer;
+import org.lpc.visual.PixelModeViewer;
 import org.lpc.visual.MemoryViewer;
+import org.lpc.visual.TextModeViewer;
 
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -24,7 +26,7 @@ import static org.lpc.memory.MemoryMap.RAM_BASE;
 import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
 public final class Main extends Application {
-    private static final String TRIC_FILE = "/test/test_deref.tc";
+    private static final String TRIC_FILE = "/test/test_textmode.tc";
     private static final String APP_NAME = "Triton-64 VM";
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 
@@ -34,6 +36,7 @@ public final class Main extends Application {
         return t;
     });
 
+    private IODeviceManager ioDeviceManager;
     private Memory memory;
     private Cpu cpu;
     private TriCCompiler compiler;
@@ -48,7 +51,8 @@ public final class Main extends Application {
     @SneakyThrows
     private void initializeComponents() {
         try {
-            memory = new Memory();
+            ioDeviceManager = new IODeviceManager();
+            memory = new Memory(ioDeviceManager);
             cpu = new Cpu(memory);
             String tricCode = loadResource(TRIC_FILE);
             compiler = new TriCCompiler(tricCode);
@@ -225,9 +229,10 @@ public final class Main extends Application {
 
         Platform.runLater(() -> {
             try {
-                new FrameBufferViewer(cpu).start(new Stage());
+                //new PixelModeViewer(cpu).start(new Stage());
+                new TextModeViewer(cpu).start(new Stage());
             } catch (Exception e) {
-                log("Warning: Could not launch FrameBufferViewer: %s", e.getMessage());
+                log("Warning: Could not launch PixelModeViewer: %s", e.getMessage());
             }
         });
 

@@ -1,0 +1,20 @@
+func main() {
+    var fb_start = 0x20220000
+    var i = 0
+
+    while (i < 80 * 30) {
+        var ch = 97 + i      ; 'a'
+        var fg = 0xF         ; fg color (white)
+        var bg = 0           ; bg color (black)
+
+        var addr = fb_start + i * 4
+        @addr = ch
+        @(addr + 1) = fg
+        @(addr + 2) = bg
+        @(addr + 3) = 0      ; padding
+
+        i = i + 1
+    }
+
+    while (1) {}
+}
