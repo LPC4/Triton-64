@@ -1,12 +1,30 @@
-.gradle
-.idea
-gradle
-build/
-gradle/wrapper/
+# Ignore IDE configs
 .idea/
+.gradle/
+*.iml
+*.ipr
+*.iws
+out/
+.vscode/
+
+# Ignore build outputs
+build/
+**/build/
+**/out/
+bin/
+
+# Ignore Gradle but keep wrapper scripts
+gradle/
+!gradle/wrapper/
 !gradle/wrapper/gradle-wrapper.jar
-!**/src/main/**/build/
-!**/src/test/**/build/
+!gradle/wrapper/gradle-wrapper.properties
+
+# Keep Gradle wrapper scripts
+!gradlew
+!gradlew.bat
+
+# OS-specific
+.DS_Store
 
 ### IntelliJ IDEA ###
 .idea/modules.xml
