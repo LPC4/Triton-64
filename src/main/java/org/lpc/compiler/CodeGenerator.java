@@ -11,12 +11,12 @@ import org.lpc.compiler.codegen.*;
 import java.util.List;
 
 /**
- * Main code generator that coordinates the compilation process.
- * Refactored to separate concerns and improve maintainability.
+ * Generates assembly code from the parsed AST.
  */
 public class CodeGenerator implements AstVisitor<String> {
-    private final CodeGenContext ctx;
     private final Program program;
+
+    private final CodeGenContext ctx;
     private final InstructionEmitter emitter;
     private final RegisterManager registerManager;
     private final StackManager stackManager;

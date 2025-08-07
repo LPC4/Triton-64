@@ -33,13 +33,12 @@ public class TextModeViewer {
 
     public TextModeViewer(Cpu cpu) {
         this.memory = cpu.getMemory();
-        // Use a larger monospace font for better readability
         this.textFont = Font.font("Courier New", FontWeight.NORMAL, 14);
     }
 
     public void start(Stage stage) {
         BorderPane root = new BorderPane();
-        root.setStyle("-fx-background-color: #f8f9fa;"); // Match PixelModeViewer background
+        root.setStyle("-fx-background-color: #f8f9fa;");
 
         Label title = new Label("📝 Text FrameBuffer Viewer (80×30)");
         title.setFont(Fonts.TITLE);
@@ -126,8 +125,8 @@ public class TextModeViewer {
                         gc.setFill(getColor(fgColor));
 
                         // Position text within cell (baseline adjustment for proper alignment)
-                        double textX = x + 2; // Slightly larger left padding
-                        double textY = y + CHAR_HEIGHT - 4; // Baseline position adjusted for larger font
+                        double textX = x + 2;
+                        double textY = y + CHAR_HEIGHT - 4;
 
                         gc.fillText(String.valueOf((char) charCode), textX, textY);
                     }

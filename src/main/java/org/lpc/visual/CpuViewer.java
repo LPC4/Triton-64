@@ -38,7 +38,7 @@ public class CpuViewer {
         startAutoRefresh();
 
         stage.setTitle("CPU Viewer - Debug Monitor");
-        stage.setScene(new Scene(root, 850, 700));  // Increased window width
+        stage.setScene(new Scene(root, 850, 700));
         stage.show();
     }
 
@@ -60,16 +60,15 @@ public class CpuViewer {
         section.getChildren().addAll(Styles.sectionHeader("📊 General Purpose Registers"));
 
         GridPane grid = new GridPane();
-        grid.setHgap(25);  // Increased horizontal gap
-        grid.setVgap(10);  // Increased vertical gap
+        grid.setHgap(25);
+        grid.setVgap(10);
         grid.setPadding(new Insets(15));
         grid.setStyle(Styles.cardStyle());
 
-        // Set column constraints to ensure proper spacing
         ColumnConstraints nameCol = new ColumnConstraints();
-        nameCol.setMinWidth(10);  // Wider for register names
+        nameCol.setMinWidth(10);
         ColumnConstraints valueCol = new ColumnConstraints();
-        valueCol.setMinWidth(150); // Much wider for 64-bit values
+        valueCol.setMinWidth(150);
 
         // Apply column constraints to all columns (4 pairs of name+value columns)
         for (int i = 0; i < 8; i++) {
@@ -105,9 +104,9 @@ public class CpuViewer {
         addControlRow(grid, "Program Counter (PC):", programCounterLabel, 0);
 
         ColumnConstraints c1 = new ColumnConstraints();
-        c1.setMinWidth(180);  // Wider label column
+        c1.setMinWidth(180);
         ColumnConstraints c2 = new ColumnConstraints();
-        c2.setMinWidth(200);  // Wider value column for 64-bit addresses
+        c2.setMinWidth(200);
         c2.setHgrow(Priority.ALWAYS);
         grid.getColumnConstraints().addAll(c1, c2);
 

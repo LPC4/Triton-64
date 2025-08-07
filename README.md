@@ -7,7 +7,7 @@ A complete 64-bit virtual machine implementation featuring a custom CPU architec
 The Triton-64 VM is a comprehensive virtual machine system that includes:
 
 - **Custom 64-bit CPU Architecture**: Complete instruction set with 32 registers
-- **TriC Programming Language**: High-level language that compiles to Triton-64 assembly
+- **TriC Programming Language + Compiler**: High-level language that compiles to Triton-64 assembly
 - **Assembler**: Converts assembly code to machine code with macro expansion
 - **Memory Management**: Sophisticated memory mapping with ROM, RAM, MMIO, and framebuffer regions
 - **Visual Debugging Tools**: Real-time CPU and memory viewers
@@ -396,6 +396,10 @@ org.lpc/
 │   ├── InstructionSet.java             # ISA definition and encoding
 │   ├── InstructionInfo.java            # Instruction metadata
 │   └── RegisterInfo.java               # Register naming and aliases
+├── io/
+│   ├── IODeviceManager.java            # Manages I/O devices
+│   ├── IODevice.java                   # Interface for I/O devices
+│   └── devices/                        # Device-specific implementations
 ├── memory/
 │   ├── Memory.java                     # Memory management system
 │   └── MemoryMap.java                  # Address space layout
@@ -406,6 +410,8 @@ org.lpc/
     ├── CpuViewer.java                  # CPU state visualization
     ├── MemoryViewer.java               # Memory dump visualization
     ├── MemoryPrinter.java              # Memory content printing
+    ├── TextModeViewer.java             # Visualiser for framebuffer interpreted as text
+    ├── PixelModeViewer.java            # Visualiser for framebuffer interpreted as pixels
     └── style/                          # Styles for visual components
 ```
 

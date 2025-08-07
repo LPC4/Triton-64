@@ -1,5 +1,5 @@
 ; Triton-C Feature Showcase
-; Demonstrates varisters, functions, control flow, and arithmetic
+; Demonstrates vars, functions, control flow, and arithmetic
 
 ; Main program
 func main() {

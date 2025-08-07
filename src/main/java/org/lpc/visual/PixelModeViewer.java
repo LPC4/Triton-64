@@ -30,7 +30,7 @@ public class PixelModeViewer {
     private final Memory memory;
 
     private long lastUpdate = 0;
-    private WritableImage image = new WritableImage(WIDTH, HEIGHT);
+    private final WritableImage image = new WritableImage(WIDTH, HEIGHT);
 
 
     public PixelModeViewer(Cpu cpu) {

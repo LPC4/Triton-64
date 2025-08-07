@@ -28,6 +28,11 @@ import java.util.concurrent.*;
 import static org.lpc.memory.MemoryMap.RAM_BASE;
 import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
+/**
+ * Main application class for the Triton-64 VM.
+ * Initializes components, compiles TriC code, assembles it, and executes the program.
+ * README.md contains detailed instructions on usage.
+ */
 public final class Main extends Application {
     private static final String TRIC_FILE = "/test/test_textmode.tc";
     private static final String APP_NAME = "Triton-64 VM";

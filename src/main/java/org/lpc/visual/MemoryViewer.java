@@ -28,7 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class MemoryViewer {
-    private static final int ROW_SIZE = 8; // Show 8 bytes per row for better visibility with long addresses
+    private static final int ROW_SIZE = 8;
     private static final int ROWS_TO_SHOW = 16;
 
     private final Cpu cpu;
@@ -50,7 +50,7 @@ public class MemoryViewer {
         this.memory = cpu.getMemory();
 
         initMemorySections();
-        currentAddress = MemoryMap.ROM_BASE; // Start viewing from ROM
+        currentAddress = MemoryMap.ROM_BASE;
     }
 
     private void initMemorySections() {

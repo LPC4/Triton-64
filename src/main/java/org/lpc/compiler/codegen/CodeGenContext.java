@@ -5,8 +5,7 @@ import lombok.Getter;
 import java.util.*;
 
 /**
- * Updated CodeGenContext that works with the refactored architecture.
- * Simplified to focus on core responsibilities.
+ * Context for code generation, holding the assembly code and temporary variables.
  */
 @Getter
 public class CodeGenContext {
