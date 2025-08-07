@@ -7,37 +7,26 @@ import java.util.*;
  * Handles temporary register allocation and provides debugging information.
  */
 public class RegisterManager {
-    private final CodeGenContext ctx;
     private final RegisterAllocator allocator;
 
     // Debug tracking
     private final Map<String, String> registerUsage = new HashMap<>();
     private final Set<String> pinnedRegisters = new HashSet<>();
 
-    public RegisterManager(CodeGenContext ctx) {
-        this.ctx = ctx;
+    public RegisterManager() {
         this.allocator = new RegisterAllocator();
     }
 
-    /**
-     * Allocate a temporary register
-     */
     public String allocateRegister() {
         return allocateRegister("temp");
     }
 
-    /**
-     * Allocate a temporary register with a usage description for debugging
-     */
     public String allocateRegister(String usage) {
         String reg = allocator.allocateTemp();
         registerUsage.put(reg, usage);
         return reg;
     }
 
-    /**
-     * Free a previously allocated register
-     */
     public void freeRegister(String register) {
         if (pinnedRegisters.contains(register)) {
             throw new IllegalStateException("Cannot free pinned register: " + register);
@@ -47,39 +36,24 @@ public class RegisterManager {
         allocator.freeTemp(register);
     }
 
-    /**
-     * Pin a register to prevent it from being freed accidentally
-     */
     public void pinRegister(String register, String reason) {
         pinnedRegisters.add(register);
         registerUsage.put(register, "PINNED: " + reason);
     }
 
-    /**
-     * Unpin a previously pinned register
-     */
     public void unpinRegister(String register) {
         pinnedRegisters.remove(register);
         registerUsage.remove(register);
     }
 
-    /**
-     * Get all currently allocated registers
-     */
     public Set<String> getAllocatedRegisters() {
         return allocator.getAllocatedTemps();
     }
 
-    /**
-     * Get live temporary registers (for save/restore operations)
-     */
     public Set<String> getLiveTemporaries() {
         return allocator.getLiveTemporaries();
     }
 
-    /**
-     * Reset the register allocator (typically at function boundaries)
-     */
     public void reset() {
         if (!pinnedRegisters.isEmpty()) {
             throw new IllegalStateException("Cannot reset with pinned registers: " + pinnedRegisters);
@@ -89,16 +63,10 @@ public class RegisterManager {
         allocator.reset();
     }
 
-    /**
-     * Check if a register is currently allocated
-     */
     public boolean isAllocated(String register) {
         return getAllocatedRegisters().contains(register);
     }
 
-    /**
-     * Get debug information about current register usage
-     */
     public String getDebugInfo() {
         StringBuilder sb = new StringBuilder();
         sb.append("Register Usage:\n");
@@ -113,9 +81,6 @@ public class RegisterManager {
         return sb.toString();
     }
 
-    /**
-     * Validate that all registers are properly freed (for debugging)
-     */
     public void validateAllFreed() {
         Set<String> allocated = getAllocatedRegisters();
         if (!allocated.isEmpty()) {

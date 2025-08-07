@@ -30,8 +30,8 @@ public class CodeGenerator implements AstVisitor<String> {
         this.program = parser.parse();
         this.ctx = new CodeGenContext();
         this.emitter = new InstructionEmitter(ctx);
-        this.registerManager = new RegisterManager(ctx);
-        this.stackManager = new StackManager(ctx, emitter, registerManager);
+        this.registerManager = new RegisterManager();
+        this.stackManager = new StackManager(emitter, registerManager);
         this.conditionalGenerator = new ConditionalGenerator(ctx, emitter, registerManager);
         this.functionManager = new FunctionManager(ctx, emitter, registerManager, stackManager);
     }
@@ -176,7 +176,6 @@ public class CodeGenerator implements AstVisitor<String> {
         return null;
     }
 
-
     @Override
     public String visit(AsmStatement asmStatement) {
         emitter.comment("Inline assembly statement");
@@ -206,10 +205,17 @@ public class CodeGenerator implements AstVisitor<String> {
 
     @Override
     public String visit(BinaryOp binaryOp) {
+        // Handle comparison operators - generate result in register
         if (ConditionalGenerator.isComparisonOp(binaryOp.op)) {
-            throw new IllegalStateException("Comparison operators should be handled in conditional contexts");
+            return conditionalGenerator.generateComparisonResult(binaryOp, this);
         }
 
+        // Handle logical operators (&&, ||) - generate result in register
+        if (ConditionalGenerator.isLogicalOp(binaryOp.op)) {
+            return conditionalGenerator.generateLogicalResult(binaryOp, this);
+        }
+
+        // Handle arithmetic/bitwise operations
         emitter.comment("Binary operation: " + binaryOp.op);
 
         String leftReg = binaryOp.left.accept(this);
@@ -267,7 +273,6 @@ public class CodeGenerator implements AstVisitor<String> {
         registerManager.freeRegister(addrReg);
         return resultReg;
     }
-
 
     // Helper methods
     private void generateStatements(List<Statement> statements) {

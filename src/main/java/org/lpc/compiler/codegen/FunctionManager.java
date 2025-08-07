@@ -224,7 +224,9 @@ public class FunctionManager {
         }
 
         private void pushArgumentsToStack(List<String> argRegs) {
-            for (String argReg : argRegs) {
+            // Push arguments in reverse order so first argument ends up at lowest address
+            for (int i = argRegs.size() - 1; i >= 0; i--) {
+                String argReg = argRegs.get(i);
                 emitter.push(argReg);
                 registerManager.freeRegister(argReg);
             }

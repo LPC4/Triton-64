@@ -23,14 +23,145 @@ public class ConditionalGenerator {
      * @param visitor The code generator visitor for evaluating expressions
      */
     public void generateConditionalJump(Expression condition, String falseLabel, CodeGenerator visitor) {
-        if (condition instanceof BinaryOp binaryOp && isComparisonOp(binaryOp.op)) {
-            generateComparisonJump(binaryOp, falseLabel, true, visitor);
+        if (condition instanceof BinaryOp binaryOp) {
+            if (isLogicalOp(binaryOp.op)) {
+                generateLogicalJump(binaryOp, falseLabel, visitor);
+            } else if (isComparisonOp(binaryOp.op)) {
+                generateComparisonJump(binaryOp, falseLabel, true, visitor);
+            } else {
+                // Other binary operations - evaluate and test for zero
+                String conditionReg = condition.accept(visitor);
+                emitter.conditionalJump("JZ", falseLabel, conditionReg);
+                registerManager.freeRegister(conditionReg);
+            }
         } else {
-            // Non-comparison condition - evaluate and test for zero
+            // Non-binary condition - evaluate and test for zero
             String conditionReg = condition.accept(visitor);
             emitter.conditionalJump("JZ", falseLabel, conditionReg);
             registerManager.freeRegister(conditionReg);
         }
+    }
+
+    /**
+     * Generate logical AND/OR jump instructions
+     * @param logical The logical binary operation (AND/OR)
+     * @param falseLabel Label to jump to if the overall condition is false
+     * @param visitor The code generator visitor
+     */
+    private void generateLogicalJump(BinaryOp logical, String falseLabel, CodeGenerator visitor) {
+        if (logical.op == BinaryOp.Op.AND) {
+            generateAndJump(logical, falseLabel, visitor);
+        } else if (logical.op == BinaryOp.Op.OR) {
+            generateOrJump(logical, falseLabel, visitor);
+        } else {
+            throw new IllegalArgumentException("Expected logical operator, got: " + logical.op);
+        }
+    }
+
+    /**
+     * Generate AND jump: if left is false, jump to falseLabel; otherwise evaluate right
+     * Short-circuit evaluation: left && right
+     */
+    private void generateAndJump(BinaryOp andOp, String falseLabel, CodeGenerator visitor) {
+        emitter.comment("Logical AND: " + andOp.left + " && " + andOp.right);
+
+        // If left is false, jump to false label (short-circuit)
+        generateConditionalJump(andOp.left, falseLabel, visitor);
+
+        // If we reach here, left was true, so evaluate right
+        generateConditionalJump(andOp.right, falseLabel, visitor);
+    }
+
+    /**
+     * Generate OR jump: if left is true, continue; if left is false, evaluate right
+     * Short-circuit evaluation: left || right
+     */
+    private void generateOrJump(BinaryOp orOp, String falseLabel, CodeGenerator visitor) {
+        emitter.comment("Logical OR: " + orOp.left + " || " + orOp.right);
+
+        String rightEvalLabel = ctx.generateLabel("or_eval_right");
+
+        // If left is false, jump to evaluate right
+        generateConditionalJump(orOp.left, rightEvalLabel, visitor);
+
+        // Left was true, so overall condition is true - don't jump to false label
+        String skipLabel = ctx.generateLabel("or_skip");
+        emitter.jump(skipLabel);
+
+        // Evaluate right operand
+        emitter.label(rightEvalLabel);
+        generateConditionalJump(orOp.right, falseLabel, visitor);
+
+        emitter.label(skipLabel);
+    }
+
+    /**
+     * Generate a conditional jump that jumps to trueLabel when condition is true
+     * @param condition The condition expression to evaluate
+     * @param trueLabel Label to jump to if condition is true
+     * @param visitor The code generator visitor for evaluating expressions
+     */
+    public void generateConditionalJumpOnTrue(Expression condition, String trueLabel, CodeGenerator visitor) {
+        if (condition instanceof BinaryOp binaryOp) {
+            if (isLogicalOp(binaryOp.op)) {
+                generateLogicalJumpOnTrue(binaryOp, trueLabel, visitor);
+            } else if (isComparisonOp(binaryOp.op)) {
+                generateComparisonJump(binaryOp, trueLabel, false, visitor);
+            } else {
+                // Other binary operations - evaluate and test for non-zero
+                String conditionReg = condition.accept(visitor);
+                emitter.conditionalJump("JNZ", trueLabel, conditionReg);
+                registerManager.freeRegister(conditionReg);
+            }
+        } else {
+            // Non-binary condition - evaluate and test for non-zero
+            String conditionReg = condition.accept(visitor);
+            emitter.conditionalJump("JNZ", trueLabel, conditionReg);
+            registerManager.freeRegister(conditionReg);
+        }
+    }
+
+    /**
+     * Generate logical AND/OR jump instructions that jump on true
+     */
+    private void generateLogicalJumpOnTrue(BinaryOp logical, String trueLabel, CodeGenerator visitor) {
+        if (logical.op == BinaryOp.Op.AND) {
+            generateAndJumpOnTrue(logical, trueLabel, visitor);
+        } else if (logical.op == BinaryOp.Op.OR) {
+            generateOrJumpOnTrue(logical, trueLabel, visitor);
+        } else {
+            throw new IllegalArgumentException("Expected logical operator, got: " + logical.op);
+        }
+    }
+
+    /**
+     * Generate AND jump on true: both operands must be true
+     */
+    private void generateAndJumpOnTrue(BinaryOp andOp, String trueLabel, CodeGenerator visitor) {
+        emitter.comment("Logical AND (jump on true): " + andOp.left + " && " + andOp.right);
+
+        String falseLabel = ctx.generateLabel("and_false");
+
+        // If left is false, skip to end
+        generateConditionalJump(andOp.left, falseLabel, visitor);
+
+        // If we reach here, left was true, so check right
+        generateConditionalJumpOnTrue(andOp.right, trueLabel, visitor);
+
+        emitter.label(falseLabel);
+    }
+
+    /**
+     * Generate OR jump on true: either operand can be true
+     */
+    private void generateOrJumpOnTrue(BinaryOp orOp, String trueLabel, CodeGenerator visitor) {
+        emitter.comment("Logical OR (jump on true): " + orOp.left + " || " + orOp.right);
+
+        // If left is true, jump to true label
+        generateConditionalJumpOnTrue(orOp.left, trueLabel, visitor);
+
+        // If left was false, check right
+        generateConditionalJumpOnTrue(orOp.right, trueLabel, visitor);
     }
 
     /**
@@ -125,6 +256,16 @@ public class ConditionalGenerator {
     }
 
     /**
+     * Check if an operator is a logical operator
+     */
+    public static boolean isLogicalOp(BinaryOp.Op op) {
+        return switch (op) {
+            case AND, OR -> true;
+            default -> false;
+        };
+    }
+
+    /**
      * Invert a comparison operator for conditional jumps
      */
     private BinaryOp.Op invertComparison(BinaryOp.Op op) {
@@ -139,6 +280,9 @@ public class ConditionalGenerator {
         };
     }
 
+    /**
+     * Generate code that evaluates a comparison and stores the result (0 or 1) in a register
+     */
     public String generateComparisonResult(BinaryOp comparison, CodeGenerator visitor) {
         String resultReg = registerManager.allocateRegister("comparison_result");
         String trueLabel = ctx.generateLabel("comp_true");
@@ -149,6 +293,31 @@ public class ConditionalGenerator {
 
         // Generate comparison that jumps to true label if condition holds
         generateComparisonJump(comparison, trueLabel, false, visitor);
+
+        // Jump over the true case
+        emitter.jump(endLabel);
+
+        // True case: set result to 1
+        emitter.label(trueLabel);
+        emitter.loadImmediate(resultReg, 1);
+
+        emitter.label(endLabel);
+        return resultReg;
+    }
+
+    /**
+     * Generate code that evaluates a logical expression and stores the result (0 or 1) in a register
+     */
+    public String generateLogicalResult(BinaryOp logical, CodeGenerator visitor) {
+        String resultReg = registerManager.allocateRegister("logical_result");
+        String trueLabel = ctx.generateLabel("logical_true");
+        String endLabel = ctx.generateLabel("logical_end");
+
+        // Initialize result to 0 (false)
+        emitter.loadImmediate(resultReg, 0);
+
+        // Generate logical expression that jumps to true label if condition holds
+        generateLogicalJumpOnTrue(logical, trueLabel, visitor);
 
         // Jump over the true case
         emitter.jump(endLabel);

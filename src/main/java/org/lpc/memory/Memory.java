@@ -47,7 +47,7 @@ public class Memory {
 
     private void validateWrite(long address, int size) {
         if (address < MemoryMap.ROM_END && address + size > MemoryMap.ROM_BASE) {
-            throw new MemoryException("Cannot write to ROM");
+            throw new MemoryException("Cannot write to ROM: " + Long.toHexString(address));
         }
     }
 
@@ -58,17 +58,17 @@ public class Memory {
         if (device == null) return MmioResult.NOT_HANDLED;
 
         long deviceOffset = address - device.getAddress();
-        return new MmioResult(true, device.handleRead(deviceOffset, 1));
+        return new MmioResult(true, device.handleRead(deviceOffset));
     }
 
-    private boolean handleMmioWrite(long address, int size, long value) {
+    private boolean handleMmioWrite(long address, long value) {
         if (!MemoryMap.isMmioAddress(address)) return false;
 
         IODevice device = ioDeviceManager.getDeviceByAddress(address);
         if (device == null) return true; // Ignore writes to unmapped MMIO
 
         long deviceOffset = address - device.getAddress();
-        return device.handleWrite(deviceOffset, size, value);
+        return device.handleWrite(deviceOffset, value);
     }
 
     // Read operations
@@ -200,7 +200,7 @@ public class Memory {
 
     private void writeByteUnsafe(long address, byte value) {
         validateWrite(address, Byte.BYTES);
-        if (!handleMmioWrite(address, Byte.BYTES, value & 0xFF)) {
+        if (!handleMmioWrite(address, value & 0xFF)) {
             buffer.put(toInt(address), value);
         }
     }
@@ -208,7 +208,7 @@ public class Memory {
     private void writeShortUnsafe(long address, short value) {
         validateWrite(address, Short.BYTES);
         validateRange(address, Short.BYTES);
-        if (!handleMmioWrite(address, Short.BYTES, value & 0xFFFF)) {
+        if (!handleMmioWrite(address, value & 0xFFFF)) {
             buffer.putShort(toInt(address), value);
         }
     }
@@ -216,7 +216,7 @@ public class Memory {
     private void writeIntUnsafe(long address, int value) {
         validateWrite(address, Integer.BYTES);
         validateRange(address, Integer.BYTES);
-        if (!handleMmioWrite(address, Integer.BYTES, value)) {
+        if (!handleMmioWrite(address, value)) {
             buffer.putInt(toInt(address), value);
         }
     }
@@ -224,7 +224,7 @@ public class Memory {
     private void writeLongUnsafe(long address, long value) {
         validateWrite(address, Long.BYTES);
         validateRange(address, Long.BYTES);
-        if (!handleMmioWrite(address, Long.BYTES, value)) {
+        if (!handleMmioWrite(address, value)) {
             buffer.putLong(toInt(address), value);
         }
     }

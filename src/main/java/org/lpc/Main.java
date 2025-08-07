@@ -2,15 +2,18 @@ package org.lpc;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.scene.Scene;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lombok.SneakyThrows;
 import org.lpc.assembler.Assembler;
 import org.lpc.compiler.TriCCompiler;
 import org.lpc.cpu.Cpu;
 import org.lpc.io.IODeviceManager;
+import org.lpc.io.devices.KeyboardDevice;
 import org.lpc.memory.Memory;
+import org.lpc.memory.MemoryMap;
 import org.lpc.visual.CpuViewer;
-import org.lpc.visual.PixelModeViewer;
 import org.lpc.visual.MemoryViewer;
 import org.lpc.visual.TextModeViewer;
 
@@ -41,6 +44,7 @@ public final class Main extends Application {
     private Cpu cpu;
     private TriCCompiler compiler;
     private final CompletableFuture<Void> initializationComplete = new CompletableFuture<>();
+    private KeyboardDevice keyboardDevice; // Reference to keyboard device
 
     @Override
     public void init() {
@@ -54,8 +58,7 @@ public final class Main extends Application {
             ioDeviceManager = new IODeviceManager();
             memory = new Memory(ioDeviceManager);
             cpu = new Cpu(memory);
-            String tricCode = loadResource(TRIC_FILE);
-            compiler = new TriCCompiler(tricCode);
+            compiler = new TriCCompiler(loadResource(TRIC_FILE));
             log("VM components initialized successfully");
             initializationComplete.complete(null);
         } catch (Exception e) {
@@ -67,6 +70,10 @@ public final class Main extends Application {
     @Override
     public void start(Stage primaryStage) {
         log("Starting application...");
+
+        // Create keyboard device without scene initially
+        keyboardDevice = new KeyboardDevice(MemoryMap.MMIO_BASE);
+        ioDeviceManager.addDevice(keyboardDevice);
 
         // Wait for initialization to complete before starting pipeline
         initializationComplete
@@ -107,13 +114,8 @@ public final class Main extends Application {
 
     private int[] assembleProgram(List<String> compiledCode) {
         try {
-            // Convert the compiled code directly to assembly string
             String assemblyCode = String.join("\n", compiledCode);
-
-            // Optional: Save to file for debugging purposes
             saveCompiledCodeForDebugging(compiledCode);
-
-            // Assemble directly from the string
             return new Assembler().assemble(assemblyCode);
         } catch (Exception e) {
             throw new RuntimeException("Assembly failed: " + e.getMessage(), e);
@@ -124,30 +126,23 @@ public final class Main extends Application {
         try {
             Path filePath = Path.of("src/main/resources/compiled.asm");
             Files.createDirectories(filePath.getParent());
-
             String content = String.join("\n", compiledCode);
             Files.writeString(filePath, content,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.WRITE);
-
             log("Debug: Compiled code saved to %s", filePath);
         } catch (Exception e) {
             log("Warning: Could not save debug file: %s", e.getMessage());
-            // Don't fail the pipeline for debug file issues
         }
     }
 
     private void executeProgram(int[] program) {
         validateProgramSize(program);
         loadToRam(program);
-
         Platform.runLater(this::launchDebugViews);
-
-        // Run CPU on background thread
         executor.submit(() -> runCpuAndShutdown(program));
     }
-
 
     private void validateProgramSize(int[] program) {
         long maxInstructions = RAM_SIZE / Integer.BYTES;
@@ -161,85 +156,84 @@ public final class Main extends Application {
 
     private void loadToRam(int[] program) {
         log("Loading %d instructions to RAM at 0x%016X", program.length, RAM_BASE);
-
         for (int i = 0; i < program.length; i++) {
             long address = RAM_BASE + (long) i * Integer.BYTES;
             memory.writeInt(address, program[i]);
         }
-
         log("Program loaded to RAM successfully");
     }
 
     private void runCpuAndShutdown(int[] program) {
         log("Starting CPU execution...");
-
         try {
             long startTime = System.nanoTime();
             cpu.run();
             long endTime = System.nanoTime();
-
             double executionTimeMs = (endTime - startTime) / 1_000_000.0;
-
             log("\n=== Execution Complete ===");
             log("Execution time: %.2f ms", executionTimeMs);
             log("Instructions executed: %d", program.length);
             cpu.printRegisters();
-
         } catch (Exception e) {
             log("CPU execution failed: %s", e.getMessage());
             e.printStackTrace();
         } finally {
             executor.submit(() -> {
                 try {
-                    Thread.sleep(2000); // Let user observe output
+                    Thread.sleep(2000);
                 } catch (InterruptedException ignored) {}
                 Platform.runLater(Platform::exit);
             });
         }
     }
 
-
     private Void handleError(Throwable throwable) {
         logError(throwable);
-
-        // Show error in UI if needed
         Platform.runLater(Platform::exit);
-
         return null;
     }
 
     private void launchDebugViews() {
         log("Launching debug views...");
 
-        Platform.runLater(() -> {
-            try {
-                new MemoryViewer(cpu).start(new Stage());
-            } catch (Exception e) {
-                log("Warning: Could not launch MemoryViewer: %s", e.getMessage());
-            }
-        });
+        // Create and show text mode viewer first
+        Stage textModeStage = new Stage();
+        TextModeViewer textModeViewer = new TextModeViewer(cpu);
+        textModeViewer.start(textModeStage);
 
-        Platform.runLater(() -> {
-            try {
-                new CpuViewer(cpu).start(new Stage());
-            } catch (Exception e) {
-                log("Warning: Could not launch CpuViewer: %s", e.getMessage());
-            }
-        });
+        // Get the scene from the text mode viewer
+        Scene textModeScene = textModeStage.getScene();
 
-        Platform.runLater(() -> {
-            try {
-                //new PixelModeViewer(cpu).start(new Stage());
-                new TextModeViewer(cpu).start(new Stage());
-            } catch (Exception e) {
-                log("Warning: Could not launch PixelModeViewer: %s", e.getMessage());
-            }
-        });
+        // Connect keyboard to the text mode scene
+        keyboardDevice.setScene(textModeScene);
+
+        // Focus the text mode window
+        textModeStage.requestFocus();
+
+        // Launch other debug views
+        launchMemoryViewer();
+        launchCpuViewer();
 
         log("Debug view launch requests sent");
     }
 
+    private void launchMemoryViewer() {
+        try {
+            Stage memoryStage = new Stage();
+            new MemoryViewer(cpu).start(memoryStage);
+        } catch (Exception e) {
+            log("Warning: Could not launch MemoryViewer: %s", e.getMessage());
+        }
+    }
 
+    private void launchCpuViewer() {
+        try {
+            Stage cpuStage = new Stage();
+            new CpuViewer(cpu).start(cpuStage);
+        } catch (Exception e) {
+            log("Warning: Could not launch CpuViewer: %s", e.getMessage());
+        }
+    }
 
     @SneakyThrows
     private String loadResource(String resourcePath) {
@@ -253,10 +247,7 @@ public final class Main extends Application {
     @Override
     public void stop() {
         log("Initiating graceful shutdown...");
-
-        // Cancel any pending initialization
         initializationComplete.cancel(true);
-
         shutdownExecutor(executor, "Main executor");
         log("Shutdown complete");
     }

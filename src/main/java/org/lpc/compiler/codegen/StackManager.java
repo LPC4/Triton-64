@@ -11,15 +11,13 @@ import java.util.*;
 public class StackManager {
     private static final int WORD_SIZE = 8; // 64-bit words
 
-    private final CodeGenContext ctx;
     private final InstructionEmitter emitter;
     private final RegisterManager registerManager;
     private final StackOperations stackOps;
 
     private FunctionFrame currentFrame;
 
-    public StackManager(CodeGenContext ctx, InstructionEmitter emitter, RegisterManager registerManager) {
-        this.ctx = ctx;
+    public StackManager(InstructionEmitter emitter, RegisterManager registerManager) {
         this.emitter = emitter;
         this.registerManager = registerManager;
         this.stackOps = new StackOperations();

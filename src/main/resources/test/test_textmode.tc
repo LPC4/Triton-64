@@ -1,20 +1,53 @@
+func writeChar(addr, char, fgColor, bgColor) {
+    @addr = char
+    @(addr + 1) = fgColor
+    @(addr + 2) = bgColor
+    @(addr + 3) = 0
+}
+
 func main() {
-    var fb_start = 0x20220000
-    var i = 0
+    var framebufferBase = 0x20220000
+    var framebufferSize = 80 * 30
 
-    while (i < 80 * 30) {
-        var ch = 97 + i      ; 'a'
-        var fg = 0xF         ; fg color (white)
-        var bg = 0           ; bg color (black)
+    var mmioBase = 537001984
+    var queueHeadOffset = 0x08
+    var queueControlOffset = 0x0C
 
-        var addr = fb_start + i * 4
-        @addr = ch
-        @(addr + 1) = fg
-        @(addr + 2) = bg
-        @(addr + 3) = 0      ; padding
+    var fgColor = 0xF
+    var bgColor = 0
 
-        i = i + 1
+    var cursorIndex = 0
+    var screenWidth = 80
+    var screenHeight = 30
+
+    while (1) {
+        var inputChar = @(mmioBase + queueHeadOffset)
+
+        if (inputChar != 0xFF) {    ; input available
+            if (inputChar == 10) {  ; newline
+                cursorIndex = ((cursorIndex / screenWidth) + 1) * screenWidth
+                if (cursorIndex >= framebufferSize) {
+                    cursorIndex = 0
+                }
+            }
+
+            if (inputChar == 8) {  ; backspace
+                if (cursorIndex > 0) {
+                    cursorIndex = cursorIndex - 1
+                    var addr = framebufferBase + cursorIndex * 4
+                    writeChar(addr, 0, fgColor, bgColor)
+                }
+            }
+
+            if (inputChar != 10 && inputChar != 8) {  ; normal char
+                if (cursorIndex < framebufferSize) {
+                    var addr = framebufferBase + cursorIndex * 4
+                    writeChar(addr, inputChar, fgColor, bgColor)
+                    cursorIndex = cursorIndex + 1
+                }
+            }
+
+            @(mmioBase + queueControlOffset) = 1
+        }
     }
-
-    while (1) {}
 }
