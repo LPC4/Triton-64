@@ -13,6 +13,9 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 - **Visual Debugging Tools**: Real-time CPU and memory viewers
 - **ROM System**: Bootable ROM with integrated assembly code
 
+![Framebuffer](examples/test_charbuffer.gif)
+![Malloc](examples/test_malloc.gif)
+
 ## Architecture
 
 ### CPU Specifications

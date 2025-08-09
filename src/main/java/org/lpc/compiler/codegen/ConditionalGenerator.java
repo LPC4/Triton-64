@@ -40,9 +40,9 @@ public class ConditionalGenerator {
     }
 
     private void generateLogicalJump(BinaryOp logical, String falseLabel, CodeGenerator visitor) {
-        if (logical.op == BinaryOp.Op.AND) {
+        if (logical.op == BinaryOp.Op.LOGICAL_AND) {
             generateAndJump(logical, falseLabel, visitor);
-        } else if (logical.op == BinaryOp.Op.OR) {
+        } else if (logical.op == BinaryOp.Op.LOGICAL_OR) {
             generateOrJump(logical, falseLabel, visitor);
         } else {
             throw new IllegalArgumentException("Expected logical operator, got: " + logical.op);
@@ -99,9 +99,9 @@ public class ConditionalGenerator {
     }
 
     private void generateLogicalJumpOnTrue(BinaryOp logical, String trueLabel, CodeGenerator visitor) {
-        if (logical.op == BinaryOp.Op.AND) {
+        if (logical.op == BinaryOp.Op.LOGICAL_AND) {
             generateAndJumpOnTrue(logical, trueLabel, visitor);
-        } else if (logical.op == BinaryOp.Op.OR) {
+        } else if (logical.op == BinaryOp.Op.LOGICAL_OR) {
             generateOrJumpOnTrue(logical, trueLabel, visitor);
         } else {
             throw new IllegalArgumentException("Expected logical operator, got: " + logical.op);
@@ -206,7 +206,7 @@ public class ConditionalGenerator {
 
     public static boolean isLogicalOp(BinaryOp.Op op) {
         return switch (op) {
-            case AND, OR -> true;
+            case LOGICAL_AND, LOGICAL_OR -> true;
             default -> false;
         };
     }

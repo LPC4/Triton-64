@@ -6,13 +6,12 @@ func main() {
     var framebufferSize = screenWidth * screenHeight
 
     var mmioBase = 0x20020000
-    var queueHeadOffset = 0x08
+    var queueHeadOffset = 0x01
 
     var cursorIndex = 0
 
     while (1) {
         var inputChar = @(mmioBase + queueHeadOffset)
-
         if (inputChar != 0xFF) {
             cursorIndex = handleInput(inputChar, cursorIndex, framebufferBase, framebufferSize, screenWidth)
             confirmInputProcessed()
@@ -23,16 +22,11 @@ func main() {
 func handleInput(char, cursorIndex, framebufferBase, framebufferSize, screenWidth) {
     if (char == 10) { ; newline
         cursorIndex = handleNewline(cursorIndex, framebufferSize, screenWidth)
-    }
-
-    if (char == 8) { ; backspace
+    } else if (char == 8) { ; backspace
         cursorIndex = handleBackspace(cursorIndex, framebufferBase)
-    }
-
-    if (char != 10 && char != 8) { ; normal character
+    } else { ; normal character
         cursorIndex = handleNormalChar(char, cursorIndex, framebufferBase, framebufferSize)
     }
-
     return cursorIndex
 }
 
@@ -74,6 +68,6 @@ func writeChar(addr, char) {
 
 func confirmInputProcessed() {
     var mmioBase = 0x20020000
-    var queueControlOffset = 0x0C
+    var queueControlOffset = 0x02
     @(mmioBase + queueControlOffset) = 1
 }

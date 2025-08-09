@@ -19,15 +19,38 @@ public class Parser {
     }
 
     public Program parse() {
+        List<GlobalDeclaration> globals = new ArrayList<>();
         List<FunctionDef> functions = new ArrayList<>();
-        while (!isAtEnd()) {
-            functions.add(parseFunction());
-        }
-        Program program = new Program(functions);
 
+        while (!isAtEnd()) {
+            if (check("global")) {
+                globals.add(parseGlobalDeclaration());
+            } else if (check("func")) {
+                functions.add(parseFunction());
+            } else {
+                throw new RuntimeException("Expected 'global' or 'func', found: " + peek());
+            }
+        }
+
+        Program program = new Program(globals, functions);
         System.out.println("\nParsed AST:");
         System.out.println(program);
         return program;
+    }
+
+    private GlobalDeclaration parseGlobalDeclaration() {
+        consume("global");
+        String name = consume();
+        Expression initializer = null;
+
+        if (match("=")) {
+            initializer = parseExpression();
+        } else {
+            initializer = new LongLiteral(0); // Default to 0
+        }
+
+        if (check(";")) consume(); // Optional semicolon
+        return new GlobalDeclaration(name, initializer);
     }
 
     private FunctionDef parseFunction() {
@@ -72,7 +95,6 @@ public class Parser {
     private Statement parseAssignmentOrExpressionStatement() {
         Expression left = parsePrimary();
 
-        // Check if next token is '=' for assignment
         if (check("=")) {
             consume("=");
             Expression right = parseExpression();
@@ -80,7 +102,6 @@ public class Parser {
             return new AssignmentStatement(left, right);
         }
 
-        // Not assignment, parse the rest of the expression starting with left
         Expression expr = parseExpressionRest(left);
 
         if (expr instanceof FunctionCall) {
@@ -91,8 +112,6 @@ public class Parser {
         if (check(";")) consume();
         return new ExpressionStatement(expr);
     }
-
-    // Overloaded parse methods to continue parsing expressions with left as start
 
     private Expression parseExpression() {
         return parseLogicalOr();
@@ -122,8 +141,38 @@ public class Parser {
     }
 
     private Expression parseLogicalAnd() {
-        Expression left = parseEquality();
+        Expression left = parseBitwiseOr();
         while (match("&&")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseBitwiseOr();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseBitwiseOr() {
+        Expression left = parseBitwiseXor();
+        while (match("|")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseBitwiseXor();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseBitwiseXor() {
+        Expression left = parseBitwiseAnd();
+        while (match("^")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseBitwiseAnd();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseBitwiseAnd() {
+        Expression left = parseEquality();
+        while (match("&")) {
             String operator = tokens.get(position - 1);
             Expression right = parseEquality();
             left = new BinaryOp(operator, left, right);
@@ -142,8 +191,18 @@ public class Parser {
     }
 
     private Expression parseComparison() {
-        Expression left = parseAdditive();
+        Expression left = parseShift();
         while (match("<=", ">=", "<", ">")) {
+            String operator = tokens.get(position - 1);
+            Expression right = parseShift();
+            left = new BinaryOp(operator, left, right);
+        }
+        return left;
+    }
+
+    private Expression parseShift() {
+        Expression left = parseAdditive();
+        while (match(">>", "<<", ">>>")) {
             String operator = tokens.get(position - 1);
             Expression right = parseAdditive();
             left = new BinaryOp(operator, left, right);
@@ -172,7 +231,7 @@ public class Parser {
     }
 
     private Expression parseUnary() {
-        if (match("-", "!")) {
+        if (match("-", "!", "~")) {
             String operator = tokens.get(position - 1);
             Expression right = parseUnary();
             return new UnaryOp(operator, right);
@@ -217,10 +276,17 @@ public class Parser {
         consume("{");
         List<Statement> thenBranch = parseBlock();
         List<Statement> elseBranch = null;
+
         if (match("else")) {
-            consume("{");
-            elseBranch = parseBlock();
+            if (match("if")) {
+                elseBranch = new ArrayList<>();
+                elseBranch.add(parseIfStatement());
+            } else {
+                consume("{");
+                elseBranch = parseBlock();
+            }
         }
+
         return new IfStatement(condition, thenBranch, elseBranch);
     }
 
@@ -235,9 +301,12 @@ public class Parser {
 
     private Statement parseDeclaration() {
         String name = consume();
-        consume("=");
-        Expression initializer = parseExpression();
-        return new Declaration(name, initializer);
+        if (match("=")) {
+            Expression initializer = parseExpression();
+            return new Declaration(name, initializer);
+        } else {
+            return new Declaration(name, new LongLiteral(0));
+        }
     }
 
     private Statement parseReturnStatement() {
@@ -271,8 +340,6 @@ public class Parser {
         consume(")");
         return new FunctionCall(name, args);
     }
-
-    // Helper methods
 
     private String consume() {
         return tokens.get(position++);
@@ -316,6 +383,6 @@ public class Parser {
     }
 
     private boolean checkTokenIsHex() {
-        return !isAtEnd() && peek().matches("0x[0-9a-fA-F]+") || peek().matches("0X[0-9a-fA-F]+");
+        return (!isAtEnd() && (peek().matches("0x[0-9a-fA-F]+") || peek().matches("0X[0-9a-fA-F]+")));
     }
 }

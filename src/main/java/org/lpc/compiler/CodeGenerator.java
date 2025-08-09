@@ -22,6 +22,7 @@ public class CodeGenerator implements AstVisitor<String> {
     private final StackManager stackManager;
     private final ConditionalGenerator conditionalGenerator;
     private final FunctionManager functionManager;
+    private final GlobalManager globalManager;
 
     // Current compilation state
     private String currentFunctionEndLabel;
@@ -34,6 +35,7 @@ public class CodeGenerator implements AstVisitor<String> {
         this.stackManager = new StackManager(emitter, registerManager);
         this.conditionalGenerator = new ConditionalGenerator(ctx, emitter, registerManager);
         this.functionManager = new FunctionManager(ctx, emitter, registerManager, stackManager);
+        this.globalManager = new GlobalManager(emitter, registerManager);
     }
 
     public List<String> generate() {
@@ -47,9 +49,16 @@ public class CodeGenerator implements AstVisitor<String> {
 
     @Override
     public String visit(Program program) {
-        // JAL to main, HLT after return
         emitter.comment("Program entry point");
         emitter.label("_start");
+
+        // First, allocate space for global variables
+        globalManager.allocateGlobals(program.globals);
+
+        // Initialize global variables with their values
+        globalManager.initializeGlobals(program.globals, this);
+
+        // Jump to main and halt after return
         emitter.instruction("JAL", "main", "ra");
         emitter.instruction("HLT");
 
@@ -83,6 +92,13 @@ public class CodeGenerator implements AstVisitor<String> {
         } finally {
             currentFunctionEndLabel = null;
         }
+    }
+
+    @Override
+    public String visit(GlobalDeclaration globalDeclaration) {
+        // This is handled in Program.visit(), so we don't need to do anything here
+        // But we need this method to implement the interface
+        return null;
     }
 
     @Override
@@ -156,21 +172,27 @@ public class CodeGenerator implements AstVisitor<String> {
     @Override
     public String visit(AssignmentStatement assignment) {
         if (assignment.target instanceof Variable var) {
-            emitter.comment("Assignment to variable: " + var.name);
-            int offset = stackManager.getVariableOffset(var.name);
             String valueReg = assignment.initialValue.accept(this);
-            stackManager.storeToStack(offset, valueReg);
+
+            // Check if it's a global variable first
+            if (globalManager.isGlobal(var.name)) {
+                emitter.comment("Assignment to global variable: " + var.name);
+                globalManager.storeToGlobal(var.name, valueReg);
+            } else {
+                emitter.comment("Assignment to local variable: " + var.name);
+                int offset = stackManager.getVariableOffset(var.name);
+                stackManager.storeToStack(offset, valueReg);
+            }
+
             registerManager.freeRegister(valueReg);
-        }
-        else if (assignment.target instanceof Dereference deref) {
+        } else if (assignment.target instanceof Dereference deref) {
             String addrReg = deref.address.accept(this);
             String valueReg = assignment.initialValue.accept(this);
             emitter.comment("Assignment to dereferenced address at " + addrReg);
             emitter.instruction("ST", addrReg, valueReg);
             registerManager.freeRegister(addrReg);
             registerManager.freeRegister(valueReg);
-        }
-        else {
+        } else {
             throw new IllegalStateException("Unsupported assignment target");
         }
         return null;
@@ -187,6 +209,12 @@ public class CodeGenerator implements AstVisitor<String> {
 
     @Override
     public String visit(Variable variable) {
+        // Check if it's a global first
+        if (globalManager.isGlobal(variable.name)) {
+            return globalManager.loadFromGlobal(variable.name);
+        }
+
+        // Otherwise it's a local variable
         int offset = stackManager.getVariableOffset(variable.name);
         return stackManager.loadFromStack(offset);
     }
@@ -285,9 +313,9 @@ public class CodeGenerator implements AstVisitor<String> {
             case SUB -> emitter.instruction("SUB", resultReg, leftReg, rightReg);
             case MUL -> emitter.instruction("MUL", resultReg, leftReg, rightReg);
             case DIV -> emitter.instruction("DIV", resultReg, leftReg, rightReg);
-            case AND -> emitter.instruction("AND", resultReg, leftReg, rightReg);
-            case OR  -> emitter.instruction("OR",  resultReg, leftReg, rightReg);
-            case XOR -> emitter.instruction("XOR", resultReg, leftReg, rightReg);
+            case BITWISE_AND -> emitter.instruction("AND", resultReg, leftReg, rightReg);
+            case BITWISE_OR -> emitter.instruction("OR", resultReg, leftReg, rightReg);
+            case BITWISE_XOR -> emitter.instruction("XOR", resultReg, leftReg, rightReg);
             case SHL -> emitter.instruction("SHL", resultReg, leftReg, rightReg);
             case SHR -> emitter.instruction("SHR", resultReg, leftReg, rightReg);
             case SAR -> emitter.instruction("SAR", resultReg, leftReg, rightReg);

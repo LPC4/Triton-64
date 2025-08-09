@@ -11,6 +11,7 @@ import org.lpc.compiler.TriCCompiler;
 import org.lpc.cpu.Cpu;
 import org.lpc.io.IODeviceManager;
 import org.lpc.io.devices.KeyboardDevice;
+import org.lpc.io.devices.TimerDevice;
 import org.lpc.memory.Memory;
 import org.lpc.memory.MemoryMap;
 import org.lpc.visual.CpuViewer;
@@ -34,7 +35,7 @@ import static org.lpc.memory.MemoryMap.RAM_SIZE;
  * README.md contains detailed instructions on usage.
  */
 public final class Main extends Application {
-    private static final String TRIC_FILE = "/test/test_textmode.tc";
+    private static final String TRIC_FILE = "/test/test_malloc.tc";
     private static final String APP_NAME = "Triton-64 VM";
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 
@@ -49,7 +50,7 @@ public final class Main extends Application {
     private Cpu cpu;
     private TriCCompiler compiler;
     private final CompletableFuture<Void> initializationComplete = new CompletableFuture<>();
-    private KeyboardDevice keyboardDevice; // Reference to keyboard device
+    private KeyboardDevice keyboardDevice;
 
     @Override
     public void init() {
@@ -78,8 +79,10 @@ public final class Main extends Application {
 
         // Create keyboard device without scene initially
         keyboardDevice = new KeyboardDevice(MemoryMap.MMIO_BASE);
-        ioDeviceManager.addDevice(keyboardDevice);
-
+        ioDeviceManager.addDevices(
+                keyboardDevice,
+                new TimerDevice(MemoryMap.MMIO_BASE + KeyboardDevice.SIZE)
+        );
         // Wait for initialization to complete before starting pipeline
         initializationComplete
                 .thenRunAsync(this::executeCompilationPipeline, executor)
@@ -129,7 +132,7 @@ public final class Main extends Application {
 
     private void saveCompiledCodeForDebugging(List<String> compiledCode) {
         try {
-            Path filePath = Path.of("src/main/resources/compiled.asm");
+            Path filePath = Path.of("src/main/resources/out/compiled.asm");
             Files.createDirectories(filePath.getParent());
             String content = String.join("\n", compiledCode);
             Files.writeString(filePath, content,

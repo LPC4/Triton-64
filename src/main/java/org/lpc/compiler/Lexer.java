@@ -69,6 +69,18 @@ public class Lexer {
                 } else if (c == '|' && peekNext() == '|') {
                     tokens.add("||");
                     position += 2;
+                } else if (c == '>' && peekNext() == '>') {
+                    tokens.add(">>");
+                    position += 2;
+                } else if (c == '<' && peekNext() == '<') {
+                    tokens.add("<<");
+                    position += 2;
+                }else if (c == '+' && peekNext() == '+') {
+                    tokens.add("++");
+                    position += 2;
+                } else if (c == '-' && peekNext() == '-') {
+                    tokens.add("--");
+                    position += 2;
                 } else {
                     tokens.add(String.valueOf(c));
                     position++;
@@ -109,6 +121,6 @@ public class Lexer {
     }
 
     private boolean isSpecialChar(char c) {
-        return "@(){}=,+-*/%<>!&|".indexOf(c) != -1;
+        return "~@(){}=,+-*/%<>!&|".indexOf(c) != -1;
     }
 }

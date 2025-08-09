@@ -25,11 +25,11 @@ public class IODeviceManager {
                 if (addressRangesOverlap(existingDevice, device)) {
                     throw new IllegalArgumentException(
                         String.format("Device address range [0x%X - 0x%X] overlaps with existing device '%s' [0x%X - 0x%X]",
-                                device.getAddress(),
-                                device.getAddress() + device.getSize() - 1,
+                                device.getBaseAdress(),
+                                device.getBaseAdress() + device.getSize() - 1,
                                 existingDevice.getName(),
-                                existingDevice.getAddress(),
-                                existingDevice.getAddress() + existingDevice.getSize() - 1)
+                                existingDevice.getBaseAdress(),
+                                existingDevice.getBaseAdress() + existingDevice.getSize() - 1)
                     );
                 }
             }
@@ -53,7 +53,7 @@ public class IODeviceManager {
         lock.readLock().lock();
         try {
             for (IODevice device : devices) {
-                long deviceStart = device.getAddress();
+                long deviceStart = device.getBaseAdress();
                 long deviceEnd = deviceStart + device.getSize() - 1;
 
                 if (address >= deviceStart && address <= deviceEnd) {
@@ -67,9 +67,9 @@ public class IODeviceManager {
     }
 
     private boolean addressRangesOverlap(IODevice device1, IODevice device2) {
-        long start1 = device1.getAddress();
+        long start1 = device1.getBaseAdress();
         long end1 = start1 + device1.getSize() - 1;
-        long start2 = device2.getAddress();
+        long start2 = device2.getBaseAdress();
         long end2 = start2 + device2.getSize() - 1;
 
         // Two ranges overlap if: start1 <= end2 && start2 <= end1

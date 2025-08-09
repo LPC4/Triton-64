@@ -1,0 +1,11 @@
+global g1 = 1
+global g2 = 3 * 5 + 2
+global g3 = 2
+
+func main() {
+    g3 = 1 + 3
+    g2 = 2 * 5
+    g1 = 3 + 5
+
+    return g1 + g2 + g3
+}

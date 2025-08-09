@@ -1,10 +1,10 @@
 package org.lpc.io;
 
 public interface IODevice {
-    long getAddress();
+    long getBaseAdress();
     long getSize();
     String getName();
 
     boolean handleWrite(long relativeAddress, long value);
-    long handleRead(long relativeAddress);
+    long handleRead(long relativeAddress, int size);
 }

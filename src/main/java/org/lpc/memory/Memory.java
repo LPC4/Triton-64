@@ -41,7 +41,8 @@ public class Memory {
     private void validateRange(long address, int size) {
         if (size < 0) throw new MemoryException("Negative size");
         if (address < 0 || address > MemoryMap.TOTAL_SIZE - size) {
-            throw new MemoryException("Address range overflow");
+            throw new MemoryException("Address range overflow: 0x" + Long.toHexString(address) +
+                    " with size " + size);
         }
     }
 
@@ -51,14 +52,14 @@ public class Memory {
         }
     }
 
-    private MmioResult handleMmioRead(long address) {
+    private MmioResult handleMmioRead(long address, int size) {
         if (!MemoryMap.isMmioAddress(address)) return MmioResult.NOT_HANDLED;
 
         IODevice device = ioDeviceManager.getDeviceByAddress(address);
         if (device == null) return MmioResult.NOT_HANDLED;
 
-        long deviceOffset = address - device.getAddress();
-        return new MmioResult(true, device.handleRead(deviceOffset));
+        long deviceOffset = address - device.getBaseAdress();
+        return new MmioResult(true, device.handleRead(deviceOffset, size));
     }
 
     private boolean handleMmioWrite(long address, long value) {
@@ -67,7 +68,7 @@ public class Memory {
         IODevice device = ioDeviceManager.getDeviceByAddress(address);
         if (device == null) return true; // Ignore writes to unmapped MMIO
 
-        long deviceOffset = address - device.getAddress();
+        long deviceOffset = address - device.getBaseAdress();
         return device.handleWrite(deviceOffset, value);
     }
 
@@ -104,28 +105,28 @@ public class Memory {
     }
 
     private long readByteUnsafe(long address) {
-        MmioResult mmio = handleMmioRead(address);
+        MmioResult mmio = handleMmioRead(address, Byte.BYTES);
         if (mmio.handled) return mmio.value & 0xFF;
         return buffer.get(toInt(address)) & 0xFF;
     }
 
     private long readShortUnsafe(long address) {
         validateRange(address, Short.BYTES);
-        MmioResult mmio = handleMmioRead(address);
+        MmioResult mmio = handleMmioRead(address, Short.BYTES);
         if (mmio.handled) return mmio.value & 0xFFFF;
         return buffer.getShort(toInt(address)) & 0xFFFF;
     }
 
     private long readIntUnsafe(long address) {
         validateRange(address, Integer.BYTES);
-        MmioResult mmio = handleMmioRead(address);
+        MmioResult mmio = handleMmioRead(address, Integer.BYTES);
         if (mmio.handled) return mmio.value;
         return buffer.getInt(toInt(address));
     }
 
     private long readLongUnsafe(long address) {
         validateRange(address, Long.BYTES);
-        MmioResult mmio = handleMmioRead(address);
+        MmioResult mmio = handleMmioRead(address, Long.BYTES);
         if (mmio.handled) return mmio.value;
         return buffer.getLong(toInt(address));
     }

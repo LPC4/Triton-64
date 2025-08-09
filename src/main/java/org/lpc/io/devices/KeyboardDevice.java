@@ -14,14 +14,14 @@ import java.util.Set;
  *
  * Memory Map:
  * +0x00 CURRENT_CHAR    [RO] - ASCII code of any currently pressed key (0 if none)
- * +0x08 QUEUE_HEAD      [RO] - ASCII of first queued key (0xFF if empty)
- * +0x0C QUEUE_CONTROL   [WO] - Write 1 to pop QUEUE_HEAD
+ * +0x01 QUEUE_HEAD      [RO] - ASCII of first queued key (0xFF if empty)
+ * +0x02 QUEUE_CONTROL   [WO] - Write 1 to pop QUEUE_HEAD
  */
 public class KeyboardDevice implements IODevice {
-    public static final int SIZE = 16;
+    public static final int SIZE = 8;
     public static final int OFFSET_CURRENT_CHAR = 0;
-    public static final int OFFSET_QUEUE_HEAD = 8;
-    public static final int OFFSET_QUEUE_CONTROL = 12;
+    public static final int OFFSET_QUEUE_HEAD = 1;
+    public static final int OFFSET_QUEUE_CONTROL = 2;
     public static final int MAX_QUEUE_SIZE = 64;
 
     private final long baseAddress;
@@ -76,7 +76,7 @@ public class KeyboardDevice implements IODevice {
     }
 
     @Override
-    public long getAddress() {
+    public long getBaseAdress() {
         return baseAddress;
     }
 
@@ -100,7 +100,7 @@ public class KeyboardDevice implements IODevice {
     }
 
     @Override
-    public long handleRead(long relativeAddress) {
+    public long handleRead(long relativeAddress, int size) {
         if (relativeAddress == OFFSET_CURRENT_CHAR) {
             // Return any pressed key, or 0 if none pressed
             return pressedKeys.stream().findFirst().orElse(0) & 0xFF;

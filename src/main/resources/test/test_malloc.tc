@@ -1,0 +1,57 @@
+global freeListHead = 0
+
+func main() {
+    var ptr1 = malloc(16) ; allocate 16 bytes
+    if (ptr1 == 0) { return -1 } ; allocation failed
+    @ptr1 = 0x123456789ABCDEF0 ; write a value to the allocated memory
+
+    return @ptr1 ; return the value stored at ptr1 (0x123456789ABCDEF0) at a0
+}
+
+func write64(addr, value) {
+    @addr = value
+}
+
+func read64(addr) {
+    return @addr
+}
+
+func malloc(size_req) { ; custom malloc
+    if (freeListHead == 0) {
+        freeListHead = 402784256                     ; constant from memory map
+        write64(freeListHead, (134217728 << 32) | 0) ; pack size + next pointer
+    }
+
+    var current = freeListHead
+    var prev = 0
+
+    var lowMask = (1 << 32) - 1
+    var highMask = ~lowMask
+
+    while (current != 0) {
+        var header = read64(current)
+        var blockSize = header >> 32
+        var nextBlock = header & lowMask
+
+        if (blockSize >= size_req + 8) {
+            if (prev == 0) {
+                freeListHead = nextBlock
+            } else {
+                var prevHeader = read64(prev)
+                var sizePart = prevHeader & highMask
+                write64(prev, sizePart | nextBlock)
+            }
+            return current + 8
+        }
+        prev = current
+        current = nextBlock
+    }
+    return 0
+}
+
+func free(ptr) { ; custom free
+    var header = ptr - 8
+    var blockSize = read64(header) >> 32
+    write64(header, (blockSize << 32) | freeListHead)
+    freeListHead = header
+}
