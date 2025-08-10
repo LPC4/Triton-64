@@ -7,8 +7,8 @@ public class Lexer {
     private final String input;
     private int position = 0;
 
-    public Lexer(String input) {
-        this.input = input.trim();
+    public Lexer(Linker linker) {
+        this.input = linker.link();
     }
 
     public List<String> tokenize() {

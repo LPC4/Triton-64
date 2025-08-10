@@ -2,8 +2,6 @@ package org.lpc;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.scene.Scene;
-import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import lombok.SneakyThrows;
 import org.lpc.assembler.Assembler;
@@ -25,19 +23,16 @@ import java.nio.file.StandardOpenOption;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 
 import static org.lpc.memory.MemoryMap.RAM_BASE;
 import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
-/**
- * Main application class for the Triton-64 VM.
- * Initializes components, compiles TriC code, assembles it, and executes the program.
- * README.md contains detailed instructions on usage.
- */
 public final class Main extends Application {
     private static final String TRIC_FILE = "/test/test_malloc.tc";
     private static final String APP_NAME = "Triton-64 VM";
-    private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
+    private static final int SHUTDOWN_TIMEOUT_SECONDS = 1;
+    private static final int CPU_STARTUP_DELAY_MS = 500;
 
     private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
         Thread t = new Thread(r, "VM-Worker");
@@ -45,153 +40,186 @@ public final class Main extends Application {
         return t;
     });
 
-    private IODeviceManager ioDeviceManager;
     private Memory memory;
     private Cpu cpu;
-    private TriCCompiler compiler;
-    private final CompletableFuture<Void> initializationComplete = new CompletableFuture<>();
+    // I/O devices
     private KeyboardDevice keyboardDevice;
+    private TimerDevice timerDevice;
 
     @Override
     public void init() {
         log("Initializing virtual machine components...");
-        initializeComponents();
-    }
+        IODeviceManager ioDeviceManager = new IODeviceManager();
 
-    @SneakyThrows
-    private void initializeComponents() {
-        try {
-            ioDeviceManager = new IODeviceManager();
-            memory = new Memory(ioDeviceManager);
-            cpu = new Cpu(memory);
-            compiler = new TriCCompiler(loadResource(TRIC_FILE));
-            log("VM components initialized successfully");
-            initializationComplete.complete(null);
-        } catch (Exception e) {
-            initializationComplete.completeExceptionally(e);
-            throw e;
-        }
+        memory = new Memory(ioDeviceManager);
+        cpu = new Cpu(memory);
+
+        // Initialize I/O devices
+        keyboardDevice = new KeyboardDevice(MemoryMap.MMIO_BASE);
+        timerDevice = new TimerDevice(MemoryMap.MMIO_BASE + KeyboardDevice.SIZE);
+        ioDeviceManager.addDevices(keyboardDevice, timerDevice);
+
+        log("VM components initialized successfully");
     }
 
     @Override
     public void start(Stage primaryStage) {
-        log("Starting application...");
-
-        // Create keyboard device without scene initially
-        keyboardDevice = new KeyboardDevice(MemoryMap.MMIO_BASE);
-        ioDeviceManager.addDevices(
-                keyboardDevice,
-                new TimerDevice(MemoryMap.MMIO_BASE + KeyboardDevice.SIZE)
-        );
-        // Wait for initialization to complete before starting pipeline
-        initializationComplete
-                .thenRunAsync(this::executeCompilationPipeline, executor)
+        executePipeline()
                 .exceptionally(this::handleError);
     }
 
-    private void executeCompilationPipeline() {
-        try {
-            log("=== Starting Compilation Pipeline ===");
-
-            // Step 1: Compile TriC code
-            log("Step 1: Compiling TriC code...");
-            List<String> compiledCode = compileTricCode();
-            log("TriC compilation completed (%d lines)", compiledCode.size());
-
-            // Step 2: Assemble the compiled code directly
-            log("Step 2: Assembling program...");
-            int[] program = assembleProgram(compiledCode);
-            log("Assembly completed (%d instructions)", program.length);
-
-            // Step 3: Execute the program
-            log("Step 3: Executing program...");
-            executeProgram(program);
-
-        } catch (Exception e) {
-            throw new RuntimeException("Pipeline execution failed", e);
-        }
+    private CompletableFuture<Void> executePipeline() {
+        return CompletableFuture
+                .supplyAsync(this::compileStage, executor)
+                .thenCompose(this::assembleStage)
+                .thenCompose(this::loadStage)
+                .thenCompose(this::launchDebugViewsStage)
+                .thenCompose(this::executeStage);
     }
 
-    private List<String> compileTricCode() {
-        try {
-            return compiler.compile();
-        } catch (Exception e) {
-            throw new RuntimeException("TriC compilation failed: " + e.getMessage(), e);
-        }
+    private List<String> compileStage() {
+        return timeStage("Compilation", () -> {
+            TriCCompiler compiler = new TriCCompiler(loadResource(TRIC_FILE));
+            List<String> compiledCode = compiler.compile();
+            saveCompiledCode(compiledCode);
+            log("Compiled %d lines of TriC code", compiledCode.size());
+            return compiledCode;
+        });
     }
 
-    private int[] assembleProgram(List<String> compiledCode) {
-        try {
-            String assemblyCode = String.join("\n", compiledCode);
-            saveCompiledCodeForDebugging(compiledCode);
-            return new Assembler().assemble(assemblyCode);
-        } catch (Exception e) {
-            throw new RuntimeException("Assembly failed: " + e.getMessage(), e);
-        }
+    private CompletableFuture<int[]> assembleStage(List<String> compiledCode) {
+        return CompletableFuture.supplyAsync(() ->
+                timeStage("Assembly", () -> {
+                    String assemblyCode = String.join("\n", compiledCode);
+                    int[] program = new Assembler().assemble(assemblyCode);
+                    log("Assembled %d instructions", program.length);
+                    return program;
+                }), executor
+        );
     }
 
-    private void saveCompiledCodeForDebugging(List<String> compiledCode) {
-        try {
-            Path filePath = Path.of("src/main/resources/out/compiled.asm");
-            Files.createDirectories(filePath.getParent());
-            String content = String.join("\n", compiledCode);
-            Files.writeString(filePath, content,
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.WRITE);
-            log("Debug: Compiled code saved to %s", filePath);
-        } catch (Exception e) {
-            log("Warning: Could not save debug file: %s", e.getMessage());
-        }
+    private CompletableFuture<int[]> loadStage(int[] program) {
+        return CompletableFuture.supplyAsync(() ->
+                timeStage("Loading", () -> {
+                    validateProgramSize(program);
+                    for (int i = 0; i < program.length; i++) {
+                        long address = RAM_BASE + (long) i * Integer.BYTES;
+                        memory.writeInt(address, program[i]);
+                    }
+                    log("Loaded %d instructions to RAM", program.length);
+                    return program;
+                }), executor
+        );
     }
 
-    private void executeProgram(int[] program) {
-        validateProgramSize(program);
-        loadToRam(program);
-        Platform.runLater(this::launchDebugViews);
-        executor.submit(() -> runCpuAndShutdown(program));
+    private CompletableFuture<int[]> launchDebugViewsStage(int[] program) {
+        CompletableFuture<Void> uiSetup = new CompletableFuture<>();
+
+        Platform.runLater(() -> {
+            try {
+                // Launch debug views
+                createTextModeViewer();
+                createMemoryViewer();
+                createCpuViewer();
+
+                log("Debug views launched successfully");
+                uiSetup.complete(null);
+            } catch (Exception e) {
+                uiSetup.completeExceptionally(e);
+            }
+        });
+
+        return uiSetup.thenApply(ignored -> program);
+    }
+
+    private CompletableFuture<Void> executeStage(int[] program) {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                // Small delay to ensure UI is fully initialized
+                Thread.sleep(CPU_STARTUP_DELAY_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+
+            timeStage("Execution", () -> {
+                cpu.run();
+                logExecutionMetrics();
+                scheduleShutdown();
+                return null;
+            });
+        }, executor);
+    }
+
+    private void createTextModeViewer() {
+        Stage textModeStage = new Stage();
+        TextModeViewer textModeViewer = new TextModeViewer(cpu);
+        textModeViewer.start(textModeStage);
+        keyboardDevice.setScene(textModeStage.getScene());
+        textModeStage.requestFocus();
+    }
+
+    private void createMemoryViewer() {
+        Stage memoryStage = new Stage();
+        new MemoryViewer(cpu).start(memoryStage);
+    }
+
+    private void createCpuViewer() {
+        Stage cpuStage = new Stage();
+        new CpuViewer(cpu).start(cpuStage);
+    }
+
+    private <T> T timeStage(String name, Supplier<T> operation) {
+        log("Starting %s stage...", name);
+        long start = System.nanoTime();
+        T result = operation.get();
+        double duration = (System.nanoTime() - start) / 1_000_000.0;
+        log("%s completed in %.2f ms", name, duration);
+        return result;
     }
 
     private void validateProgramSize(int[] program) {
         long maxInstructions = RAM_SIZE / Integer.BYTES;
         if (program.length > maxInstructions) {
             throw new IllegalArgumentException(
-                    String.format("Program too large for RAM (max %d instructions, got %d)",
+                    String.format("Program too large (max %d instructions, got %d)",
                             maxInstructions, program.length));
         }
-        log("Program size validation passed: %d/%d instructions", program.length, maxInstructions);
     }
 
-    private void loadToRam(int[] program) {
-        log("Loading %d instructions to RAM at 0x%016X", program.length, RAM_BASE);
-        for (int i = 0; i < program.length; i++) {
-            long address = RAM_BASE + (long) i * Integer.BYTES;
-            memory.writeInt(address, program[i]);
-        }
-        log("Program loaded to RAM successfully");
-    }
-
-    private void runCpuAndShutdown(int[] program) {
-        log("Starting CPU execution...");
+    private void saveCompiledCode(List<String> compiledCode) {
         try {
-            long startTime = System.nanoTime();
-            cpu.run();
-            long endTime = System.nanoTime();
-            double executionTimeMs = (endTime - startTime) / 1_000_000.0;
-            log("\n=== Execution Complete ===");
-            log("Execution time: %.2f ms", executionTimeMs);
-            log("Instructions executed: %d", program.length);
-            cpu.printRegisters();
+            Path filePath = Path.of("src/main/resources/out/compiled.asm");
+            Files.createDirectories(filePath.getParent());
+            Files.writeString(filePath, String.join("\n", compiledCode),
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING);
         } catch (Exception e) {
-            log("CPU execution failed: %s", e.getMessage());
-            e.printStackTrace();
-        } finally {
-            executor.submit(() -> {
-                try {
-                    Thread.sleep(2000);
-                } catch (InterruptedException ignored) {}
-                Platform.runLater(Platform::exit);
-            });
+            log("Warning: Could not save debug file: %s", e.getMessage());
+        }
+    }
+
+    private void logExecutionMetrics() {
+        log("\n=== Execution Complete ===");
+        cpu.printRegisters();
+    }
+
+    private void scheduleShutdown() {
+        executor.submit(() -> {
+            try {
+                Thread.sleep(2000);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            Platform.runLater(Platform::exit);
+        });
+    }
+
+    @SneakyThrows
+    private String loadResource(String resourcePath) {
+        try (InputStream is = Objects.requireNonNull(
+                getClass().getResourceAsStream(resourcePath))) {
+            return new String(is.readAllBytes());
         }
     }
 
@@ -201,80 +229,19 @@ public final class Main extends Application {
         return null;
     }
 
-    private void launchDebugViews() {
-        log("Launching debug views...");
-
-        // Create and show text mode viewer first
-        Stage textModeStage = new Stage();
-        TextModeViewer textModeViewer = new TextModeViewer(cpu);
-        textModeViewer.start(textModeStage);
-
-        // Get the scene from the text mode viewer
-        Scene textModeScene = textModeStage.getScene();
-
-        // Connect keyboard to the text mode scene
-        keyboardDevice.setScene(textModeScene);
-
-        // Focus the text mode window
-        textModeStage.requestFocus();
-
-        // Launch other debug views
-        launchMemoryViewer();
-        launchCpuViewer();
-
-        log("Debug view launch requests sent");
-    }
-
-    private void launchMemoryViewer() {
-        try {
-            Stage memoryStage = new Stage();
-            new MemoryViewer(cpu).start(memoryStage);
-        } catch (Exception e) {
-            log("Warning: Could not launch MemoryViewer: %s", e.getMessage());
-        }
-    }
-
-    private void launchCpuViewer() {
-        try {
-            Stage cpuStage = new Stage();
-            new CpuViewer(cpu).start(cpuStage);
-        } catch (Exception e) {
-            log("Warning: Could not launch CpuViewer: %s", e.getMessage());
-        }
-    }
-
-    @SneakyThrows
-    private String loadResource(String resourcePath) {
-        try (InputStream is = Objects.requireNonNull(
-                getClass().getResourceAsStream(resourcePath),
-                "Missing resource: " + resourcePath)) {
-            return new String(is.readAllBytes());
-        }
-    }
-
     @Override
     public void stop() {
         log("Initiating graceful shutdown...");
-        initializationComplete.cancel(true);
-        shutdownExecutor(executor, "Main executor");
-        log("Shutdown complete");
-    }
-
-    private void shutdownExecutor(ExecutorService executor, String executorName) {
         executor.shutdown();
         try {
             if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
-                log("%s did not terminate gracefully, forcing shutdown...", executorName);
-                List<Runnable> pendingTasks = executor.shutdownNow();
-                log("Cancelled %d pending tasks", pendingTasks.size());
-            } else {
-                log("%s terminated gracefully", executorName);
+                executor.shutdownNow();
             }
         } catch (InterruptedException e) {
-            log("%s interrupted during shutdown", executorName);
             executor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        log("Shutdown complete");
     }
 
     private static void log(String format, Object... args) {
@@ -284,7 +251,7 @@ public final class Main extends Application {
 
     private static void logError(Throwable t) {
         String timestamp = String.format("%tT", System.currentTimeMillis());
-        System.err.printf("[%s] [%s] ERROR: %s%n", timestamp, APP_NAME, "Pipeline error");
+        System.err.printf("[%s] [%s] ERROR: %s%n", timestamp, APP_NAME, t.getMessage());
         t.printStackTrace(System.err);
     }
 

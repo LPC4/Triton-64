@@ -8,15 +8,19 @@ public final class MemoryMap {
     // Memory region bases and sizes
     public static final long ROM_BASE = 0x0000_0000_0000_0000L;
     public static final long ROM_SIZE = 128 * 1024;                      // 128 KB ROM
+    public static final long ROM_END = ROM_BASE + ROM_SIZE;
 
     public static final long RAM_BASE = ROM_BASE + ROM_SIZE;             // RAM starts after ROM
     public static final long RAM_SIZE = 512 * 1024 * 1024;               // 512 MB RAM
+    public static final long RAM_END = RAM_BASE + RAM_SIZE;
 
     public static final long MMIO_BASE = RAM_BASE + RAM_SIZE;            // MMIO starts after RAM
     public static final long MMIO_SIZE = 2 * 1024 * 1024;                // 2 MB MMIO
+    public static final long MMIO_END = MMIO_BASE + MMIO_SIZE;
 
     public static final long FB_BASE = MMIO_BASE + MMIO_SIZE;            // Framebuffer starts after MMIO
     public static final long FB_SIZE = 16 * 1024 * 1024;                 // 16 MB framebuffer (maximum size)
+    public static final long FB_END = FB_BASE + FB_SIZE;
 
     // The stack and heap share a combined space in RAM
     public static final long STACK_HEAP_SIZE = 128L * 1024 * 1024;       // 128 MB stack+heap
@@ -25,16 +29,6 @@ public final class MemoryMap {
 
     // Total memory size
     public static final long TOTAL_SIZE = ROM_SIZE + RAM_SIZE + MMIO_SIZE + FB_SIZE;
-
-    // Memory region bounds for validation
-    public static final long ROM_END = ROM_BASE + ROM_SIZE;
-    public static final long RAM_END = RAM_BASE + RAM_SIZE;
-    public static final long MMIO_END = MMIO_BASE + MMIO_SIZE;
-    public static final long FB_END = FB_BASE + FB_SIZE;
-
-    private MemoryMap() {
-        // Prevent instantiation
-    }
 
     public static boolean isRomAddress(long address) {
         return address >= ROM_BASE && address < ROM_END;

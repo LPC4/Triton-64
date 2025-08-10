@@ -1,57 +1,119 @@
-global freeListHead = 0
+import memory
+
+global test_ptr1 = 0
+global test_ptr2 = 0
+global test_ptr3 = 0
+global test_ptr4 = 0
+global test_ptr5 = 0
+
+func test_basic_allocation() {
+    ; Test 1: Basic allocation
+    test_ptr1 = malloc(16)
+    @test_ptr1 = 0x1111111111111111        ; Distinctive pattern
+    @(test_ptr1 + 8) = 0x2222222222222222   ; Second 8 bytes
+
+    test_ptr2 = malloc(8)
+    @test_ptr2 = 0x3333333333333333        ; Different pattern
+
+    test_ptr3 = malloc(32)
+    @test_ptr3 = 0x4444444444444444        ; Another pattern
+    @(test_ptr3 + 8) = 0x5555555555555555
+    @(test_ptr3 + 16) = 0x6666666666666666
+    @(test_ptr3 + 24) = 0x7777777777777777
+}
+
+func test_free_and_realloc() {
+    ; Test 2: Free first allocation
+    free(test_ptr1)
+
+    ; Test 3: Allocate same size - should reuse freed block
+    test_ptr4 = malloc(16)
+    @test_ptr4 = 0xAAAAAAAAAAAAAAA       ; New pattern in reused block
+    @(test_ptr4 + 8) = 0xBBBBBBBBBBBBBBB
+
+    ; Test 4: Free middle allocation
+    free(test_ptr2)
+
+    ; Test 5: Large allocation that won't fit in small freed block
+    test_ptr5 = malloc(64)
+    @test_ptr5 = 0xCCCCCCCCCCCCCCC       ; Should go in new location
+    @(test_ptr5 + 8) = 0xDDDDDDDDDDDDDDD
+    @(test_ptr5 + 56) = 0xEEEEEEEEEEEEEEE  ; Mark end of large block
+}
+
+func test_edge_cases() {
+    ; Test 6: Zero allocation
+    var ptr_zero = malloc(0)
+    var zero_result = ptr_zero  ; Should be 0
+
+    ; Test 7: Free null pointer (should not crash)
+    free(0)
+
+    ; Test 8: Double free detection
+    free(test_ptr4)
+    free(test_ptr4)  ; Second free should be ignored
+
+    ; Test 9: Realloc tests
+    var ptr_realloc = malloc(16)
+    @ptr_realloc = 0x999999999999999
+    ptr_realloc = realloc(ptr_realloc, 32)   ; Grow
+    @(ptr_realloc + 16) = 0x888888888888888  ; Add data to new space
+
+    ptr_realloc = realloc(ptr_realloc, 8)   ; Shrink
+
+    ; Test 10: Calloc (zero-initialized)
+    var ptr_calloc = calloc(4, 8)  ; 32 bytes, all zeros
+    var calloc_check1 = @ptr_calloc        ; Should be 0
+    var calloc_check2 = @(ptr_calloc + 24) ; Should be 0
+
+    return ptr_calloc
+}
+
+func test_heap_stats() {
+    ; Test 11: Get heap statistics
+    var total_free_addr = malloc(8)
+    var total_allocated_addr = malloc(8)
+    var free_blocks_addr = malloc(8)
+
+    get_heap_stats(total_free_addr, total_allocated_addr, free_blocks_addr)
+
+    ; Statistics will be visible in memory at these addresses
+    var stats_free = @total_free_addr
+    var stats_allocated = @total_allocated_addr
+    var stats_blocks = @free_blocks_addr
+
+    return stats_free
+}
 
 func main() {
-    var ptr1 = malloc(16) ; allocate 16 bytes
-    if (ptr1 == 0) { return -1 } ; allocation failed
-    @ptr1 = 0x123456789ABCDEF0 ; write a value to the allocated memory
+    ; Sequential tests with clear memory patterns
 
-    return @ptr1 ; return the value stored at ptr1 (0x123456789ABCDEF0) at a0
-}
+    ; PHASE 1: Basic allocation
+    test_basic_allocation()
 
-func write64(addr, value) {
-    @addr = value
-}
+    ; Add distinctive separator pattern in memory
+    var separator1 = 0xEEDFACEDEADBEEF
 
-func read64(addr) {
-    return @addr
-}
+    ; PHASE 2: Free and reallocation
+    test_free_and_realloc()
 
-func malloc(size_req) { ; custom malloc
-    if (freeListHead == 0) {
-        freeListHead = 402784256                     ; constant from memory map
-        write64(freeListHead, (134217728 << 32) | 0) ; pack size + next pointer
-    }
+    ; Another separator
+    var separator2 = 0xAFEBABEDEADC0DE
 
-    var current = freeListHead
-    var prev = 0
+    ; PHASE 3: Edge cases and error handling
+    var final_ptr = test_edge_cases()
 
-    var lowMask = (1 << 32) - 1
-    var highMask = ~lowMask
+    ; Final separator
+    var separator3 = 0xEADBEEFCAFEBABE
 
-    while (current != 0) {
-        var header = read64(current)
-        var blockSize = header >> 32
-        var nextBlock = header & lowMask
+    ; PHASE 4: Heap statistics
+    var heap_stats = test_heap_stats()
 
-        if (blockSize >= size_req + 8) {
-            if (prev == 0) {
-                freeListHead = nextBlock
-            } else {
-                var prevHeader = read64(prev)
-                var sizePart = prevHeader & highMask
-                write64(prev, sizePart | nextBlock)
-            }
-            return current + 8
-        }
-        prev = current
-        current = nextBlock
-    }
+    ; Final marker to indicate test completion
+    var test_complete = 0x234567890ABCDEF
+
+    ; Infinite loop so you can examine memory
+    while(1) {}
+
     return 0
-}
-
-func free(ptr) { ; custom free
-    var header = ptr - 8
-    var blockSize = read64(header) >> 32
-    write64(header, (blockSize << 32) | freeListHead)
-    freeListHead = header
 }
