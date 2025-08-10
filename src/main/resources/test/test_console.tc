@@ -111,24 +111,16 @@ func print_number_with_newline(num) {
 
 func demo_basic_numbers() {
     ; Demo 1: Print individual numbers
-    var numbers_to_test = malloc(40)  ; Array of test numbers
-    @numbers_to_test = 0
-    @(numbers_to_test + 4) = 5
-    @(numbers_to_test + 8) = 42
-    @(numbers_to_test + 12) = 123
-    @(numbers_to_test + 16) = 999
-    @(numbers_to_test + 20) = 1000
-    @(numbers_to_test + 24) = 12345
-    @(numbers_to_test + 28) = 99999
+    ; Fix: Initialize numbers directly instead of trying to store in memory
 
-    var i = 0
-    while (i < 8) {
-        var test_num = @(numbers_to_test + i * 4)
-        print_number_with_newline(test_num)
-        i = i + 1
-    }
-
-    free(numbers_to_test)
+    print_number_with_newline(0)
+    print_number_with_newline(5)
+    print_number_with_newline(42)
+    print_number_with_newline(123)
+    print_number_with_newline(999)
+    print_number_with_newline(1000)
+    print_number_with_newline(12345)
+    print_number_with_newline(99999)
 }
 
 func demo_formatted_messages() {
@@ -138,22 +130,22 @@ func demo_formatted_messages() {
     var suffix = malloc(20)
 
     ; Create "Count: " prefix
-    @prefix = 67   ; C
-    @(prefix+1) = 111  ; o
-    @(prefix+2) = 117  ; u
-    @(prefix+3) = 110  ; n
-    @(prefix+4) = 116  ; t
-    @(prefix+5) = 58   ; :
-    @(prefix+6) = 32   ; space
+    @prefix = 'C'
+    @(prefix+1) = 'o'
+    @(prefix+2) = 'u'
+    @(prefix+3) = 'n'
+    @(prefix+4) = 't'
+    @(prefix+5) = ':'
+    @(prefix+6) = ' '   ; space
     @(prefix+7) = 0    ; null
 
     ; Create " items" suffix
     @suffix = 32   ; space
-    @(suffix+1) = 105  ; i
-    @(suffix+2) = 116  ; t
-    @(suffix+3) = 101  ; e
-    @(suffix+4) = 109  ; m
-    @(suffix+5) = 115  ; s
+    @(suffix+1) = 'i'
+    @(suffix+2) = 't'
+    @(suffix+3) = 'e'
+    @(suffix+4) = 'm'
+    @(suffix+5) = 's'
     @(suffix+6) = 0    ; null
 
     var count = 1
@@ -176,15 +168,15 @@ func demo_math_table() {
     var equals_text = malloc(10)
 
     ; Create " x " text
-    @times_text = 32   ; space
-    @(times_text+1) = 120  ; x
-    @(times_text+2) = 32   ; space
+    @times_text = ' '   ; space
+    @(times_text+1) = 'x'  ; x
+    @(times_text+2) = ' '   ; space
     @(times_text+3) = 0    ; null
 
     ; Create " = " text
-    @equals_text = 32   ; space
-    @(equals_text+1) = 61  ; =
-    @(equals_text+2) = 32  ; space
+    @equals_text = ' '   ; space
+    @(equals_text+1) = '='  ; =
+    @(equals_text+2) = ' '  ; space
     @(equals_text+3) = 0   ; null
 
     var a = 1
@@ -236,17 +228,17 @@ func demo_math_table() {
 func demo_countdown() {
     ; Demo 4: Countdown from 20 to 0
     var prefix = malloc(15)
-    @prefix = 67   ; C
-    @(prefix+1) = 111  ; o
-    @(prefix+2) = 117  ; u
-    @(prefix+3) = 110  ; n
-    @(prefix+4) = 116  ; t
-    @(prefix+5) = 100  ; d
-    @(prefix+6) = 111  ; o
-    @(prefix+7) = 119  ; w
-    @(prefix+8) = 110  ; n
-    @(prefix+9) = 58   ; :
-    @(prefix+10) = 32  ; space
+    @prefix = 'C'
+    @(prefix+1) = 'o'
+    @(prefix+2) = 'u'
+    @(prefix+3) = 'n'
+    @(prefix+4) = 't'
+    @(prefix+5) = 'd'
+    @(prefix+6) = 'o'
+    @(prefix+7) = 'w'
+    @(prefix+8) = 'n'
+    @(prefix+9) = ':'
+    @(prefix+10) = ' '  ; space
     @(prefix+11) = 0   ; null
 
     var empty_suffix = malloc(5)

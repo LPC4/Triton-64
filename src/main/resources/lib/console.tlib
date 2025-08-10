@@ -30,22 +30,20 @@ func console_clear() {
 }
 
 func console_scroll() {
-    ; Fixed scrolling - copy character by character (4 bytes each)
-    var src_line = 1  ; Start from line 1 (second line)
-    var dst_line = 0  ; Copy to line 0 (first line)
+    ; copy character by character (4 bytes each)
+    var src_line = 1
+    var dst_line = 0
 
     ; Copy all lines except the last one
     while (src_line < screenHeight) {
         var src_start = framebufferBase + src_line * screenWidth * 4
         var dst_start = framebufferBase + dst_line * screenWidth * 4
 
-        ; Copy entire line (all characters in the line)
         var char_in_line = 0
         while (char_in_line < screenWidth) {
             var src_char = src_start + char_in_line * 4
             var dst_char = dst_start + char_in_line * 4
 
-            ; Copy all 4 bytes of the character
             @dst_char = @src_char           ; character
             @(dst_char + 1) = @(src_char + 1)   ; foreground
             @(dst_char + 2) = @(src_char + 2)   ; background
@@ -58,18 +56,17 @@ func console_scroll() {
         dst_line = dst_line + 1
     }
 
-    ; Clear the last line
     var lastLineStart = framebufferBase + (screenHeight-1) * screenWidth * 4
     var i = 0
     while (i < screenWidth) {
-        writeChar(lastLineStart + i*4, 32)  ; Space character
+        writeChar(lastLineStart + i*4, ' ')
         i = i + 1
     }
 }
 
 func console_putc(char) {
     ; Handle control characters
-    if (char == 10) {  ; Newline
+    if (char == '\n') {
         var row = console_cursor / screenWidth
         if (row >= screenHeight-1) {
             console_scroll()
@@ -99,6 +96,16 @@ func console_puts(str, len) {
     }
 }
 
+func writeChar(addr, char) {
+    var fgColor = 0xF  ; White
+    var bgColor = 0     ; Black
+
+    @addr = char & 0xFF  ; Ensure char is byte-sized
+    @(addr + 1) = fgColor
+    @(addr + 2) = bgColor
+    @(addr + 3) = 0
+}
+
 ; ==================================================================================
 ; PUBLIC PRINTING FUNCTIONS
 ; ==================================================================================
@@ -117,18 +124,4 @@ func println(str, len) {
 func print_raw(ptr, len) {
     ; Direct memory output (no malloc, for internal use)
     console_puts(ptr, len)
-}
-
-; ==================================================================================
-; HELPER FUNCTIONS (Keep from original text mode program)
-; ==================================================================================
-
-func writeChar(addr, char) {
-    var fgColor = 0xF  ; White
-    var bgColor = 0     ; Black
-
-    @addr = char
-    @(addr + 1) = fgColor
-    @(addr + 2) = bgColor
-    @(addr + 3) = 0
 }

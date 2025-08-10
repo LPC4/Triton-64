@@ -41,7 +41,7 @@ public class Parser {
     private GlobalDeclaration parseGlobalDeclaration() {
         consume("global");
         String name = consume();
-        Expression initializer = null;
+        Expression initializer;
 
         if (match("=")) {
             initializer = parseExpression();
@@ -93,7 +93,8 @@ public class Parser {
     }
 
     private Statement parseAssignmentOrExpressionStatement() {
-        Expression left = parsePrimary();
+        // Parse the left side, which could include array indexing
+        Expression left = parsePostfix();
 
         if (check("=")) {
             consume("=");
@@ -102,6 +103,7 @@ public class Parser {
             return new AssignmentStatement(left, right);
         }
 
+        // Continue parsing the expression with the left side
         Expression expr = parseExpressionRest(left);
 
         if (expr instanceof FunctionCall) {
@@ -118,11 +120,15 @@ public class Parser {
     }
 
     private Expression parseExpressionRest(Expression left) {
-        return parseLogicalOr(left);
+        return parseLogicalOrRest(left);
     }
 
     private Expression parseLogicalOr() {
         Expression left = parseLogicalAnd();
+        return parseLogicalOrRest(left);
+    }
+
+    private Expression parseLogicalOrRest(Expression left) {
         while (match("||")) {
             String operator = tokens.get(position - 1);
             Expression right = parseLogicalAnd();
@@ -142,6 +148,10 @@ public class Parser {
 
     private Expression parseLogicalAnd() {
         Expression left = parseBitwiseOr();
+        return parseLogicalAndRest(left);
+    }
+
+    private Expression parseLogicalAndRest(Expression left) {
         while (match("&&")) {
             String operator = tokens.get(position - 1);
             Expression right = parseBitwiseOr();
@@ -152,6 +162,10 @@ public class Parser {
 
     private Expression parseBitwiseOr() {
         Expression left = parseBitwiseXor();
+        return parseBitwiseOrRest(left);
+    }
+
+    private Expression parseBitwiseOrRest(Expression left) {
         while (match("|")) {
             String operator = tokens.get(position - 1);
             Expression right = parseBitwiseXor();
@@ -162,6 +176,10 @@ public class Parser {
 
     private Expression parseBitwiseXor() {
         Expression left = parseBitwiseAnd();
+        return parseBitwiseXorRest(left);
+    }
+
+    private Expression parseBitwiseXorRest(Expression left) {
         while (match("^")) {
             String operator = tokens.get(position - 1);
             Expression right = parseBitwiseAnd();
@@ -172,6 +190,10 @@ public class Parser {
 
     private Expression parseBitwiseAnd() {
         Expression left = parseEquality();
+        return parseBitwiseAndRest(left);
+    }
+
+    private Expression parseBitwiseAndRest(Expression left) {
         while (match("&")) {
             String operator = tokens.get(position - 1);
             Expression right = parseEquality();
@@ -182,6 +204,10 @@ public class Parser {
 
     private Expression parseEquality() {
         Expression left = parseComparison();
+        return parseEqualityRest(left);
+    }
+
+    private Expression parseEqualityRest(Expression left) {
         while (match("==", "!=")) {
             String operator = tokens.get(position - 1);
             Expression right = parseComparison();
@@ -192,6 +218,10 @@ public class Parser {
 
     private Expression parseComparison() {
         Expression left = parseShift();
+        return parseComparisonRest(left);
+    }
+
+    private Expression parseComparisonRest(Expression left) {
         while (match("<=", ">=", "<", ">")) {
             String operator = tokens.get(position - 1);
             Expression right = parseShift();
@@ -202,6 +232,10 @@ public class Parser {
 
     private Expression parseShift() {
         Expression left = parseAdditive();
+        return parseShiftRest(left);
+    }
+
+    private Expression parseShiftRest(Expression left) {
         while (match(">>", "<<", ">>>")) {
             String operator = tokens.get(position - 1);
             Expression right = parseAdditive();
@@ -212,6 +246,10 @@ public class Parser {
 
     private Expression parseAdditive() {
         Expression left = parseMultiplicative();
+        return parseAdditiveRest(left);
+    }
+
+    private Expression parseAdditiveRest(Expression left) {
         while (match("+", "-")) {
             String operator = tokens.get(position - 1);
             Expression right = parseMultiplicative();
@@ -222,6 +260,10 @@ public class Parser {
 
     private Expression parseMultiplicative() {
         Expression left = parseUnary();
+        return parseMultiplicativeRest(left);
+    }
+
+    private Expression parseMultiplicativeRest(Expression left) {
         while (match("*", "/", "%")) {
             String operator = tokens.get(position - 1);
             Expression right = parseUnary();
@@ -236,7 +278,27 @@ public class Parser {
             Expression right = parseUnary();
             return new UnaryOp(operator, right);
         }
-        return parsePrimary();
+        return parsePostfix();
+    }
+
+    // NEW: parsePostfix handles array indexing and function calls
+    private Expression parsePostfix() {
+        Expression expr = parsePrimary();
+
+        while (true) {
+            if (match("[")) {
+                // Array indexing
+                Expression index = parseExpression();
+                consume("]");
+                expr = new ArrayIndex(expr, index);
+            } else if (check("(") && expr instanceof Variable var) {
+                return parseFunctionCall(var.name);
+            } else {
+                break;
+            }
+        }
+
+        return expr;
     }
 
     private Expression parsePrimary() {
@@ -245,8 +307,11 @@ public class Parser {
             consume(")");
             return expr;
         }
+        if (match("[")) {
+            return parseArrayLiteral();
+        }
         if (match("@")) {
-            Expression address = parsePrimary();
+            Expression address = parsePostfix();
             return new Dereference(address);
         }
         if (checkTokenIsInteger()) {
@@ -259,11 +324,13 @@ public class Parser {
             }
             throw new RuntimeException("Invalid hex literal: " + hexValue);
         }
+        if (checkTokenIsCharLiteral()) {
+            String charToken = consume();
+            long charValue = parseCharLiteral(charToken);
+            return new LongLiteral(charValue);
+        }
         if (checkTokenIsIdentifier()) {
             String name = consume();
-            if (match("(")) {
-                return parseFunctionCall(name);
-            }
             return new Variable(name);
         }
         throw new RuntimeException("Unexpected token: " + peek());
@@ -331,6 +398,7 @@ public class Parser {
     }
 
     private FunctionCall parseFunctionCall(String name) {
+        consume("(");
         List<Expression> args = new ArrayList<>();
         if (!check(")")) {
             do {
@@ -339,6 +407,93 @@ public class Parser {
         }
         consume(")");
         return new FunctionCall(name, args);
+    }
+
+    /**
+     * Parses a character literal and returns its numeric value.
+     * Supports:
+     * - Regular characters: 'a', 'B', '5'
+     * - Escape sequences: '\n', '\t', '\r', '\\', '\'', '\"'
+     * - Octal sequences: '\123' (up to 3 digits)
+     * - Hex sequences: '\x41', '\X41' (exactly 2 hex digits)
+     */
+    private long parseCharLiteral(String charToken) {
+        if (charToken.length() < 3 || !charToken.startsWith("'") || !charToken.endsWith("'")) {
+            throw new RuntimeException("Invalid character literal: " + charToken);
+        }
+
+        String content = charToken.substring(1, charToken.length() - 1);
+
+        // Handle escape sequences
+        if (content.startsWith("\\")) {
+            if (content.length() == 1) {
+                throw new RuntimeException("Incomplete escape sequence in character literal: " + charToken);
+            }
+
+            char escapeChar = content.charAt(1);
+            switch (escapeChar) {
+                case 'n': return '\n';
+                case 't': return '\t';
+                case 'r': return '\r';
+                case 'b': return '\b';
+                case 'f': return '\f';
+                case '\\': return '\\';
+                case '\'': return '\'';
+                case '\"': return '\"';
+                case '0': return '\0';
+                case 'x': case 'X':
+                    // Hexadecimal escape sequence
+                    if (content.length() != 4) {
+                        throw new RuntimeException("Invalid hex escape sequence in character literal: " + charToken);
+                    }
+                    try {
+                        return Integer.parseInt(content.substring(2), 16);
+                    } catch (NumberFormatException e) {
+                        throw new RuntimeException("Invalid hex digits in character literal: " + charToken);
+                    }
+                default:
+                    // Octal escape sequence
+                    if (Character.isDigit(escapeChar)) {
+                        StringBuilder octalStr = new StringBuilder();
+                        for (int i = 1; i < content.length() && i < 4; i++) {
+                            char c = content.charAt(i);
+                            if (c >= '0' && c <= '7') {
+                                octalStr.append(c);
+                            } else {
+                                break;
+                            }
+                        }
+                        if (octalStr.isEmpty()) {
+                            throw new RuntimeException("Invalid octal escape sequence in character literal: " + charToken);
+                        }
+                        try {
+                            return Integer.parseInt(octalStr.toString(), 8);
+                        } catch (NumberFormatException e) {
+                            throw new RuntimeException("Invalid octal digits in character literal: " + charToken);
+                        }
+                    }
+                    throw new RuntimeException("Unknown escape sequence in character literal: " + charToken);
+            }
+        } else {
+            // Regular character
+            if (content.length() != 1) {
+                throw new RuntimeException("Character literal must contain exactly one character: " + charToken);
+            }
+            return content.charAt(0);
+        }
+    }
+
+    private Expression parseArrayLiteral() {
+        List<Expression> elements = new ArrayList<>();
+
+        if (!check("]")) {
+            do {
+                elements.add(parseExpression());
+            } while (match(","));
+        }
+
+        consume("]");
+        return new ArrayLiteral(elements);
     }
 
     private String consume() {
@@ -384,5 +539,13 @@ public class Parser {
 
     private boolean checkTokenIsHex() {
         return (!isAtEnd() && (peek().matches("0x[0-9a-fA-F]+") || peek().matches("0X[0-9a-fA-F]+")));
+    }
+
+    private boolean checkTokenIsCharLiteral() {
+        if (isAtEnd()) {
+            return false;
+        }
+        String token = peek();
+        return token.startsWith("'") && token.endsWith("'") && token.length() >= 3;
     }
 }

@@ -27,4 +27,6 @@ public interface AstVisitor<T> {
     T visit(Variable variable);
     T visit(LongLiteral longLiteral);
     T visit(Dereference dereference);
+    T visit(ArrayLiteral arrayLiteral);
+    T visit(ArrayIndex arrayIndex);
 }

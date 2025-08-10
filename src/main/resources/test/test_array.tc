@@ -1,0 +1,23 @@
+import memory
+
+func main() {
+    ; Basic usage
+    var ptr = malloc(40)      ; Allocate 5 * 8 bytes
+    @ptr = [1, 2, 3, 4, 5]   ; Store array literal
+    
+    ; Array indexing
+    var first = ptr[0]        ; Gets 1
+    var second = ptr[1]       ; Gets 2
+    ptr[2] = 100             ; Sets 3rd element to 100
+    
+    ; Mixed operations
+    var sum = ptr[0] + ptr[1] ; 1 + 2 = 3
+    ptr[4] = ptr[0] * 10     ; Sets last element to 10
+    
+    ; Direct memory access still works
+    var alt = @(ptr + 16)    ; Same as ptr[2]
+
+    while (1) {}
+    
+    return ptr[4]            ; Returns 10
+}

@@ -6,7 +6,7 @@ import java.util.*;
 
 @SuppressWarnings("FieldCanBeLocal")
 public class TriCCompiler {
-    private final Linker linker; // Handles linking of multiple files
+    private final Linker linker;
     private final Lexer lexer;
     private final Parser parser;
     private final CodeGenerator codeGenerator;

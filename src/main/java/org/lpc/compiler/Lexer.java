@@ -7,6 +7,13 @@ public class Lexer {
     private final String input;
     private int position = 0;
 
+    private enum Mode {
+        NORMAL,
+        SINGLE_QUOTE,
+        DOUBLE_QUOTE,
+        ASM_BLOCK
+    }
+
     public Lexer(Linker linker) {
         this.input = linker.link();
     }
@@ -14,28 +21,55 @@ public class Lexer {
     public List<String> tokenize() {
         List<String> tokens = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
-        boolean inAsmBlock = false;
+        Mode mode = Mode.NORMAL;
 
         while (position < input.length()) {
-            if (inAsmBlock) {
+            if (mode == Mode.ASM_BLOCK) {
                 StringBuilder line = new StringBuilder();
                 while (position < input.length() && input.charAt(position) != '\n') {
-                    line.append(input.charAt(position++));
+                    line.append(input.charAt(position));
+                    position++;
                 }
-                position++; // skip newline
+                if (position < input.length()) {
+                    position++; // skip newline
+                }
                 String token = line.toString().trim();
                 if (!token.isEmpty()) {
                     tokens.add(token);
                     if (token.equals("}")) {
-                        inAsmBlock = false;
+                        mode = Mode.NORMAL;
                     }
                 }
                 continue;
             }
 
+            if (mode == Mode.SINGLE_QUOTE || mode == Mode.DOUBLE_QUOTE) {
+                char c = input.charAt(position);
+                currentToken.append(c);
+                position++;
+                if ((mode == Mode.SINGLE_QUOTE && c == '\'') || (mode == Mode.DOUBLE_QUOTE && c == '"')) {
+                    mode = Mode.NORMAL;
+                }
+                continue;
+            }
+
+            // Mode.NORMAL
             char c = input.charAt(position);
 
-            // Skip comments
+            if (c == '\'') {
+                mode = Mode.SINGLE_QUOTE;
+                currentToken.append(c);
+                position++;
+                continue;
+            }
+
+            if (c == '"') {
+                mode = Mode.DOUBLE_QUOTE;
+                currentToken.append(c);
+                position++;
+                continue;
+            }
+
             if (c == ';') {
                 while (position < input.length() && input.charAt(position) != '\n') {
                     position++;
@@ -45,57 +79,74 @@ public class Lexer {
 
             if (Character.isWhitespace(c)) {
                 if (!currentToken.isEmpty()) {
-                    String token = currentToken.toString();
-                    tokens.add(token);
-                    if (token.equals("asm") && peekNextNonWhitespace() == '{') {
-                        tokens.add("{");
-                        position = skipWhitespace(position + 1);
-                        inAsmBlock = true;
+                    addToken(tokens, currentToken);
+                    String lastToken = tokens.getLast();
+                    if (lastToken.equals("asm")) {
+                        int pos = skipWhitespace(position);
+                        if (pos < input.length() && input.charAt(pos) == '{') {
+                            tokens.add("{");
+                            position = skipWhitespace(pos + 1);
+                            mode = Mode.ASM_BLOCK;
+                        }
                     }
-                    currentToken.setLength(0);
                 }
                 position++;
-            } else if (isSpecialChar(c)) {
-                if (!currentToken.isEmpty()) {
-                    tokens.add(currentToken.toString());
-                    currentToken.setLength(0);
-                }
-                if ((c == '<' || c == '>' || c == '=' || c == '!' || c == '&' || c == '|') && peekNext() == '=') {
-                    tokens.add("" + c + '=');
-                    position += 2;
-                } else if (c == '&' && peekNext() == '&') {
-                    tokens.add("&&");
-                    position += 2;
-                } else if (c == '|' && peekNext() == '|') {
-                    tokens.add("||");
-                    position += 2;
-                } else if (c == '>' && peekNext() == '>') {
-                    tokens.add(">>");
-                    position += 2;
-                } else if (c == '<' && peekNext() == '<') {
-                    tokens.add("<<");
-                    position += 2;
-                }else if (c == '+' && peekNext() == '+') {
-                    tokens.add("++");
-                    position += 2;
-                } else if (c == '-' && peekNext() == '-') {
-                    tokens.add("--");
-                    position += 2;
-                } else {
-                    tokens.add(String.valueOf(c));
-                    position++;
-                }
-            } else {
-                currentToken.append(c);
-                position++;
+                continue;
             }
+
+            if (isSpecialChar(c)) {
+                if (!currentToken.isEmpty()) {
+                    addToken(tokens, currentToken);
+                }
+                String op = handleSpecialOperator();
+                tokens.add(op);
+                continue;
+            }
+
+            currentToken.append(c);
+            position++;
         }
 
         if (!currentToken.isEmpty()) {
-            tokens.add(currentToken.toString());
+            addToken(tokens, currentToken);
         }
 
         return tokens;
+    }
+
+    private void addToken(List<String> tokens, StringBuilder currentToken) {
+        tokens.add(currentToken.toString());
+        currentToken.setLength(0);
+    }
+
+    private String handleSpecialOperator() {
+        char c = input.charAt(position);
+        char next = peekNext();
+        if ((c == '<' || c == '>' || c == '=' || c == '!' || c == '&' || c == '|') && next == '=') {
+            position += 2;
+            return "" + c + '=';
+        } else if (c == '&' && next == '&') {
+            position += 2;
+            return "&&";
+        } else if (c == '|' && next == '|') {
+            position += 2;
+            return "||";
+        } else if (c == '>' && next == '>') {
+            position += 2;
+            return ">>";
+        } else if (c == '<' && next == '<') {
+            position += 2;
+            return "<<";
+        } else if (c == '+' && next == '+') {
+            position += 2;
+            return "++";
+        } else if (c == '-' && next == '-') {
+            position += 2;
+            return "--";
+        } else {
+            position++;
+            return String.valueOf(c);
+        }
     }
 
     private char peekNext() {
@@ -105,22 +156,14 @@ public class Lexer {
         return '\0';
     }
 
-    private char peekNextNonWhitespace() {
-        int i = position + 1;
-        while (i < input.length() && Character.isWhitespace(input.charAt(i))) {
-            i++;
+    private int skipWhitespace(int pos) {
+        while (pos < input.length() && Character.isWhitespace(input.charAt(pos))) {
+            pos++;
         }
-        return i < input.length() ? input.charAt(i) : '\0';
-    }
-
-    private int skipWhitespace(int i) {
-        while (i < input.length() && Character.isWhitespace(input.charAt(i))) {
-            i++;
-        }
-        return i;
+        return pos;
     }
 
     private boolean isSpecialChar(char c) {
-        return "~@(){}=,+-*/%<>!&|".indexOf(c) != -1;
+        return "~@(){}[]=-,+-*/%<>!&|".indexOf(c) != -1;
     }
 }
