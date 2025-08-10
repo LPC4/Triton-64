@@ -45,7 +45,7 @@ public class Linker {
 
     private List<String> findImports(String code) {
         List<String> imports = new ArrayList<>();
-        Pattern importPattern = Pattern.compile("^\\s*import\\s+(\\w+)\\s*$", Pattern.MULTILINE);
+        Pattern importPattern = Pattern.compile("^\\s*import\\s+(\\w+)\\s*(?:;.*)?$", Pattern.MULTILINE);
         Matcher matcher = importPattern.matcher(code);
 
         while (matcher.find()) {
@@ -53,6 +53,10 @@ public class Linker {
         }
 
         return imports;
+    }
+
+    private String removeImportStatements(String code) {
+        return code.replaceAll("(?m)^\\s*import\\s+\\w+\\s*(?:;.*)?$\\n?", "");
     }
 
     private String loadLibrary(String name) {
@@ -63,9 +67,5 @@ public class Linker {
             System.err.println("Warning: Could not load library " + name + ".tlib");
             return null;
         }
-    }
-
-    private String removeImportStatements(String code) {
-        return code.replaceAll("(?m)^\\s*import\\s+\\w+\\s*$\\n?", "");
     }
 }

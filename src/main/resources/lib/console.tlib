@@ -1,0 +1,134 @@
+; ==================================================================================
+; CONSOLE LIBRARY MODULE
+; ==================================================================================
+;
+; Provides console output functions: print(), println(), and print_raw()
+; Uses framebuffer at 0x20220000 with 80x30 character display
+; Each character occupies 4 bytes (char, fg, bg, reserved)
+; Supports newline handling, scrolling, and cursor management
+
+; Console globals
+global console_cursor = 0
+global screenWidth = 80
+global screenHeight = 30
+global framebufferBase = 0x20220000
+
+func console_init() {
+    console_cursor = 0
+    console_clear()
+}
+
+func console_clear() {
+    ; Clear entire screen with spaces
+    var i = 0
+    var total_chars = screenWidth * screenHeight
+    while (i < total_chars) {
+        writeChar(framebufferBase + i*4, 32)  ; Space character
+        i = i + 1
+    }
+    console_cursor = 0
+}
+
+func console_scroll() {
+    ; Fixed scrolling - copy character by character (4 bytes each)
+    var src_line = 1  ; Start from line 1 (second line)
+    var dst_line = 0  ; Copy to line 0 (first line)
+
+    ; Copy all lines except the last one
+    while (src_line < screenHeight) {
+        var src_start = framebufferBase + src_line * screenWidth * 4
+        var dst_start = framebufferBase + dst_line * screenWidth * 4
+
+        ; Copy entire line (all characters in the line)
+        var char_in_line = 0
+        while (char_in_line < screenWidth) {
+            var src_char = src_start + char_in_line * 4
+            var dst_char = dst_start + char_in_line * 4
+
+            ; Copy all 4 bytes of the character
+            @dst_char = @src_char           ; character
+            @(dst_char + 1) = @(src_char + 1)   ; foreground
+            @(dst_char + 2) = @(src_char + 2)   ; background
+            @(dst_char + 3) = @(src_char + 3)   ; reserved
+
+            char_in_line = char_in_line + 1
+        }
+
+        src_line = src_line + 1
+        dst_line = dst_line + 1
+    }
+
+    ; Clear the last line
+    var lastLineStart = framebufferBase + (screenHeight-1) * screenWidth * 4
+    var i = 0
+    while (i < screenWidth) {
+        writeChar(lastLineStart + i*4, 32)  ; Space character
+        i = i + 1
+    }
+}
+
+func console_putc(char) {
+    ; Handle control characters
+    if (char == 10) {  ; Newline
+        var row = console_cursor / screenWidth
+        if (row >= screenHeight-1) {
+            console_scroll()
+            console_cursor = (screenHeight-1) * screenWidth
+        } else {
+            console_cursor = (row + 1) * screenWidth
+        }
+        return
+    }
+
+    ; Handle printable characters
+    if (console_cursor >= screenWidth * screenHeight) {
+        console_scroll()
+        console_cursor = (screenHeight-1) * screenWidth
+    }
+
+    writeChar(framebufferBase + console_cursor*4, char)
+    console_cursor = console_cursor + 1
+}
+
+func console_puts(str, len) {
+    ; Print buffer of characters with length
+    var i = 0
+    while (i < len) {
+        console_putc(@(str + i))
+        i = i + 1
+    }
+}
+
+; ==================================================================================
+; PUBLIC PRINTING FUNCTIONS
+; ==================================================================================
+
+func print(str, len) {
+    ; Print raw byte buffer (8-byte aligned)
+    console_puts(str, len)
+}
+
+func println(str, len) {
+    ; Print with newline
+    print(str, len)
+    console_putc(10)  ; Newline
+}
+
+func print_raw(ptr, len) {
+    ; Direct memory output (no malloc, for internal use)
+    console_puts(ptr, len)
+}
+
+; ==================================================================================
+; HELPER FUNCTIONS (Keep from original text mode program)
+; ==================================================================================
+
+func writeChar(addr, char) {
+    var fgColor = 0xF  ; White
+    var bgColor = 0     ; Black
+
+    @addr = char
+    @(addr + 1) = fgColor
+    @(addr + 2) = bgColor
+    @(addr + 3) = 0
+}

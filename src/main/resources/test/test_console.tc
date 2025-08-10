@@ -1,0 +1,296 @@
+import console
+import memory
+
+func get_last_digit(num) {
+    ; Get last digit of a number without modulo
+    var tens = num / 10
+    var last_digit = num - (tens * 10)
+    return last_digit
+}
+
+func get_digit_at_position(num, position) {
+    ; Get digit at specific position (0 = ones, 1 = tens, 2 = hundreds, etc.)
+    var temp = num
+    var i = 0
+    while (i < position) {
+        temp = temp / 10
+        i = i + 1
+    }
+    return get_last_digit(temp)
+}
+
+func get_number_length(num) {
+    ; Count how many digits in a number
+    if (num == 0) {
+        return 1
+    }
+    var count = 0
+    var temp = num
+    while (temp > 0) {
+        temp = temp / 10
+        count = count + 1
+    }
+    return count
+}
+
+; ==================================================================================
+; NUMBER TO STRING UTILITY FUNCTIONS
+; ==================================================================================
+
+func number_to_string(ptr, num) {
+    ; Convert number to string buffer, returns length
+    ; Example: number_to_string(buffer, 1234) -> buffer contains "1234" and returns 4
+
+    if (num == 0) {
+        @ptr = 48  ; '0'
+        @(ptr + 1) = 0  ; null terminator
+        return 1
+    }
+
+    var num_digits = get_number_length(num)
+    var digit_pos = num_digits - 1  ; Start from most significant digit
+    var string_pos = 0
+
+    while (digit_pos >= 0) {
+        var digit = get_digit_at_position(num, digit_pos)
+        @(ptr + string_pos) = 48 + digit  ; Convert to ASCII
+        string_pos = string_pos + 1
+        digit_pos = digit_pos - 1
+    }
+
+    @(ptr + string_pos) = 0  ; null terminator
+    return string_pos  ; Return length
+}
+
+func create_message_with_number(ptr, prefix_text, num, suffix_text) {
+    ; Create message like "Count: 42 items" where 42 is the number
+    ; prefix_text and suffix_text should be null-terminated strings
+    var pos = 0
+
+    ; Copy prefix text
+    var prefix_pos = 0
+    while (@(prefix_text + prefix_pos) != 0) {
+        @(ptr + pos) = @(prefix_text + prefix_pos)
+        pos = pos + 1
+        prefix_pos = prefix_pos + 1
+    }
+
+    ; Add the number
+    var num_len = number_to_string(ptr + pos, num)
+    pos = pos + num_len
+
+    ; Copy suffix text
+    var suffix_pos = 0
+    while (@(suffix_text + suffix_pos) != 0) {
+        @(ptr + pos) = @(suffix_text + suffix_pos)
+        pos = pos + 1
+        suffix_pos = suffix_pos + 1
+    }
+
+    @(ptr + pos) = 0  ; null terminator
+    return pos  ; Return total length
+}
+
+func print_number(num) {
+    ; Quick utility to print just a number
+    var buffer = malloc(20)  ; Enough for most numbers
+    var len = number_to_string(buffer, num)
+    print(buffer, len)
+    free(buffer)
+}
+
+func print_number_with_newline(num) {
+    ; Print number followed by newline
+    print_number(num)
+    console_putc(10)
+}
+
+; ==================================================================================
+; DEMO FUNCTIONS USING NUMBER UTILITIES
+; ==================================================================================
+
+func demo_basic_numbers() {
+    ; Demo 1: Print individual numbers
+    var numbers_to_test = malloc(40)  ; Array of test numbers
+    @numbers_to_test = 0
+    @(numbers_to_test + 4) = 5
+    @(numbers_to_test + 8) = 42
+    @(numbers_to_test + 12) = 123
+    @(numbers_to_test + 16) = 999
+    @(numbers_to_test + 20) = 1000
+    @(numbers_to_test + 24) = 12345
+    @(numbers_to_test + 28) = 99999
+
+    var i = 0
+    while (i < 8) {
+        var test_num = @(numbers_to_test + i * 4)
+        print_number_with_newline(test_num)
+        i = i + 1
+    }
+
+    free(numbers_to_test)
+}
+
+func demo_formatted_messages() {
+    ; Demo 2: Create formatted messages with numbers
+    var message_buffer = malloc(100)
+    var prefix = malloc(20)
+    var suffix = malloc(20)
+
+    ; Create "Count: " prefix
+    @prefix = 67   ; C
+    @(prefix+1) = 111  ; o
+    @(prefix+2) = 117  ; u
+    @(prefix+3) = 110  ; n
+    @(prefix+4) = 116  ; t
+    @(prefix+5) = 58   ; :
+    @(prefix+6) = 32   ; space
+    @(prefix+7) = 0    ; null
+
+    ; Create " items" suffix
+    @suffix = 32   ; space
+    @(suffix+1) = 105  ; i
+    @(suffix+2) = 116  ; t
+    @(suffix+3) = 101  ; e
+    @(suffix+4) = 109  ; m
+    @(suffix+5) = 115  ; s
+    @(suffix+6) = 0    ; null
+
+    var count = 1
+    while (count <= 10) {
+        var msg_len = create_message_with_number(message_buffer, prefix, count, suffix)
+        print(message_buffer, msg_len)
+        console_putc(10)
+        count = count + 1
+    }
+
+    free(message_buffer)
+    free(prefix)
+    free(suffix)
+}
+
+func demo_math_table() {
+    ; Demo 3: Multiplication table using numbers
+    var line_buffer = malloc(50)
+    var times_text = malloc(10)
+    var equals_text = malloc(10)
+
+    ; Create " x " text
+    @times_text = 32   ; space
+    @(times_text+1) = 120  ; x
+    @(times_text+2) = 32   ; space
+    @(times_text+3) = 0    ; null
+
+    ; Create " = " text
+    @equals_text = 32   ; space
+    @(equals_text+1) = 61  ; =
+    @(equals_text+2) = 32  ; space
+    @(equals_text+3) = 0   ; null
+
+    var a = 1
+    while (a <= 5) {
+        var b = 1
+        while (b <= 5) {
+            var result = a * b
+
+            ; Build message like "3 x 4 = 12"
+            var pos = 0
+            var len1 = number_to_string(line_buffer + pos, a)
+            pos = pos + len1
+
+            var times_pos = 0
+            while (@(times_text + times_pos) != 0) {
+                @(line_buffer + pos) = @(times_text + times_pos)
+                pos = pos + 1
+                times_pos = times_pos + 1
+            }
+
+            var len2 = number_to_string(line_buffer + pos, b)
+            pos = pos + len2
+
+            var equals_pos = 0
+            while (@(equals_text + equals_pos) != 0) {
+                @(line_buffer + pos) = @(equals_text + equals_pos)
+                pos = pos + 1
+                equals_pos = equals_pos + 1
+            }
+
+            var len3 = number_to_string(line_buffer + pos, result)
+            pos = pos + len3
+
+            @(line_buffer + pos) = 0  ; null terminator
+
+            print(line_buffer, pos)
+            console_putc(10)
+
+            b = b + 1
+        }
+        a = a + 1
+    }
+
+    free(line_buffer)
+    free(times_text)
+    free(equals_text)
+}
+
+func demo_countdown() {
+    ; Demo 4: Countdown from 20 to 0
+    var prefix = malloc(15)
+    @prefix = 67   ; C
+    @(prefix+1) = 111  ; o
+    @(prefix+2) = 117  ; u
+    @(prefix+3) = 110  ; n
+    @(prefix+4) = 116  ; t
+    @(prefix+5) = 100  ; d
+    @(prefix+6) = 111  ; o
+    @(prefix+7) = 119  ; w
+    @(prefix+8) = 110  ; n
+    @(prefix+9) = 58   ; :
+    @(prefix+10) = 32  ; space
+    @(prefix+11) = 0   ; null
+
+    var empty_suffix = malloc(5)
+    @empty_suffix = 0  ; just null terminator
+
+    var countdown = 50
+    while (countdown >= 0) {
+        var message = malloc(30)
+        var len = create_message_with_number(message, prefix, countdown, empty_suffix)
+        print(message, len)
+        console_putc(10)
+        free(message)
+
+        countdown = countdown - 1
+
+        ; Add delay
+        var delay = 0
+        while (delay < 100000) {
+            delay = delay + 1
+        }
+    }
+
+    free(prefix)
+    free(empty_suffix)
+}
+
+func main() {
+    console_init()
+
+    ; Demo 1: Basic number printing
+    ;demo_basic_numbers()
+    ;console_putc(10)  ; Extra line
+
+    ; Demo 2: Formatted messages
+    ;demo_formatted_messages()
+    ;console_putc(10)  ; Extra line
+
+    ; Demo 3: Math table
+    ;demo_math_table()
+    ;console_putc(10)  ; Extra line
+
+    ; Demo 4: Countdown
+    demo_countdown()
+
+    ; Keep running
+    while (1) {}
+}
