@@ -158,23 +158,12 @@ public class CodeGenerator implements AstVisitor<String> {
         emitter.comment("Declaration: " + declaration.name);
 
         // Allocate variable space in frame
-        int offset = stackManager.allocateVariable(declaration.name);
+        int offset = stackManager.allocateVariable(declaration.name, 8);
 
         if (declaration.initializer != null) {
-            // Check if initializer is an array literal
-            if (declaration.initializer instanceof ArrayLiteral arrayLit) {
-                // For array literal initialization, we need to handle it specially
-                // The variable should contain an address where we store the array
-                String valueReg = declaration.initializer.accept(this);
-                if (valueReg != null) {
-                    stackManager.storeToStack(offset, valueReg);
-                    registerManager.freeRegister(valueReg);
-                }
-            } else {
-                String valueReg = declaration.initializer.accept(this);
-                stackManager.storeToStack(offset, valueReg);
-                registerManager.freeRegister(valueReg);
-            }
+            String valueReg = declaration.initializer.accept(this);
+            stackManager.storeToStack(offset, valueReg);
+            registerManager.freeRegister(valueReg);
         }
 
         return null;
@@ -182,70 +171,73 @@ public class CodeGenerator implements AstVisitor<String> {
 
     @Override
     public String visit(AssignmentStatement assignment) {
-        if (assignment.target instanceof Variable var) {
-            // Check if we're assigning an array literal
-            if (assignment.initialValue instanceof ArrayLiteral arrayLit) {
-                String valueReg = generateArrayAssignment(var, arrayLit);
-                if (valueReg != null) {
+        switch (assignment.target) {
+            case Variable var -> {
+                // Check if we're assigning an array literal
+                if (assignment.initialValue instanceof ArrayLiteral arrayLit) {
+                    String valueReg = generateArrayAssignment(var, arrayLit);
+                    if (valueReg != null) {
+                        registerManager.freeRegister(valueReg);
+                    }
+                } else {
+                    String valueReg = assignment.initialValue.accept(this);
+
+                    // Check if it's a global variable first
+                    if (globalManager.isGlobal(var.name)) {
+                        emitter.comment("Assignment to global variable: " + var.name);
+                        globalManager.storeToGlobal(var.name, valueReg);
+                    } else {
+                        emitter.comment("Assignment to local variable: " + var.name);
+                        int offset = stackManager.getVariableOffset(var.name);
+                        stackManager.storeToStack(offset, valueReg);
+                    }
+
                     registerManager.freeRegister(valueReg);
                 }
-            } else {
-                String valueReg = assignment.initialValue.accept(this);
-
-                // Check if it's a global variable first
-                if (globalManager.isGlobal(var.name)) {
-                    emitter.comment("Assignment to global variable: " + var.name);
-                    globalManager.storeToGlobal(var.name, valueReg);
+            }
+            case Dereference deref -> {
+                // Check if we're assigning an array literal to a dereferenced address
+                if (assignment.initialValue instanceof ArrayLiteral arrayLit) {
+                    String addrReg = deref.address.accept(this);
+                    generateArrayToMemory(addrReg, arrayLit);
+                    registerManager.freeRegister(addrReg);
                 } else {
-                    emitter.comment("Assignment to local variable: " + var.name);
-                    int offset = stackManager.getVariableOffset(var.name);
-                    stackManager.storeToStack(offset, valueReg);
+                    String addrReg = deref.address.accept(this);
+                    String valueReg = assignment.initialValue.accept(this);
+                    emitter.comment("Assignment to dereferenced address at " + addrReg);
+                    emitter.instruction("ST", addrReg, valueReg);
+                    registerManager.freeRegister(addrReg);
+                    registerManager.freeRegister(valueReg);
                 }
-
-                registerManager.freeRegister(valueReg);
             }
-        } else if (assignment.target instanceof Dereference deref) {
-            // Check if we're assigning an array literal to a dereferenced address
-            if (assignment.initialValue instanceof ArrayLiteral arrayLit) {
-                String addrReg = deref.address.accept(this);
-                generateArrayToMemory(addrReg, arrayLit);
-                registerManager.freeRegister(addrReg);
-            } else {
-                String addrReg = deref.address.accept(this);
+            case ArrayIndex arrayIdx -> {
+                // Handle array index assignment: arr[i] = value
+                String arrayReg = arrayIdx.array.accept(this);
+                String indexReg = arrayIdx.index.accept(this);
                 String valueReg = assignment.initialValue.accept(this);
-                emitter.comment("Assignment to dereferenced address at " + addrReg);
+
+                String offsetReg = registerManager.allocateRegister();
+                String addrReg = registerManager.allocateRegister();
+
+                emitter.comment("Array index assignment");
+
+                // Calculate offset: index * 8
+                emitter.instruction("LDI", offsetReg, "8");
+                emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
+
+                // Calculate address: array + offset
+                emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
+
+                // Store value at calculated address
                 emitter.instruction("ST", addrReg, valueReg);
-                registerManager.freeRegister(addrReg);
+
+                registerManager.freeRegister(arrayReg);
+                registerManager.freeRegister(indexReg);
                 registerManager.freeRegister(valueReg);
+                registerManager.freeRegister(offsetReg);
+                registerManager.freeRegister(addrReg);
             }
-        } else if (assignment.target instanceof ArrayIndex arrayIdx) {
-            // Handle array index assignment: arr[i] = value
-            String arrayReg = arrayIdx.array.accept(this);
-            String indexReg = arrayIdx.index.accept(this);
-            String valueReg = assignment.initialValue.accept(this);
-
-            String offsetReg = registerManager.allocateRegister();
-            String addrReg = registerManager.allocateRegister();
-
-            emitter.comment("Array index assignment");
-
-            // Calculate offset: index * 8
-            emitter.instruction("LDI", offsetReg, "8");
-            emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
-
-            // Calculate address: array + offset
-            emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
-
-            // Store value at calculated address
-            emitter.instruction("ST", addrReg, valueReg);
-
-            registerManager.freeRegister(arrayReg);
-            registerManager.freeRegister(indexReg);
-            registerManager.freeRegister(valueReg);
-            registerManager.freeRegister(offsetReg);
-            registerManager.freeRegister(addrReg);
-        } else {
-            throw new IllegalStateException("Unsupported assignment target");
+            case null, default -> throw new IllegalStateException("Unsupported assignment target");
         }
         return null;
     }
@@ -431,7 +423,7 @@ public class CodeGenerator implements AstVisitor<String> {
             // Generate code for the element value
             String elementReg = arrayLit.elements.get(i).accept(this);
 
-            // Store the element at the calculated address
+            // store
             emitter.instruction("ST", currentAddrReg, elementReg);
 
             registerManager.freeRegister(elementReg);
@@ -452,9 +444,9 @@ public class CodeGenerator implements AstVisitor<String> {
             case SUB -> emitter.instruction("SUB", resultReg, leftReg, rightReg);
             case MUL -> emitter.instruction("MUL", resultReg, leftReg, rightReg);
             case DIV -> emitter.instruction("DIV", resultReg, leftReg, rightReg);
-            case BITWISE_AND -> emitter.instruction("AND", resultReg, leftReg, rightReg);
-            case BITWISE_OR -> emitter.instruction("OR", resultReg, leftReg, rightReg);
-            case BITWISE_XOR -> emitter.instruction("XOR", resultReg, leftReg, rightReg);
+            case AND -> emitter.instruction("AND", resultReg, leftReg, rightReg);
+            case OR  -> emitter.instruction("OR", resultReg, leftReg, rightReg);
+            case XOR -> emitter.instruction("XOR", resultReg, leftReg, rightReg);
             case SHL -> emitter.instruction("SHL", resultReg, leftReg, rightReg);
             case SHR -> emitter.instruction("SHR", resultReg, leftReg, rightReg);
             case SAR -> emitter.instruction("SAR", resultReg, leftReg, rightReg);

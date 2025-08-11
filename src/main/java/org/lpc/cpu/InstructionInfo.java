@@ -36,6 +36,10 @@ public class InstructionInfo {
             Map.entry("JAL", InstructionSet.OP_JAL),
             Map.entry("LD" , InstructionSet.OP_LD),
             Map.entry("ST" , InstructionSet.OP_ST),
+            Map.entry("SB" , InstructionSet.OP_SB),
+            Map.entry("LB" , InstructionSet.OP_LB),
+            Map.entry("SI" , InstructionSet.OP_SI),
+            Map.entry("LI" , InstructionSet.OP_LI),
             Map.entry("LDI", InstructionSet.OP_LDI)
     );
 
@@ -64,6 +68,10 @@ public class InstructionInfo {
             Map.entry("JAL", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("LD" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("ST" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
+            Map.entry("SB" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
+            Map.entry("LB" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
+            Map.entry("SI" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
+            Map.entry("LI" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("LDI", new OperandType[]{OperandType.REGISTER, OperandType.IMMEDIATE})
     );
 
@@ -92,6 +100,10 @@ public class InstructionInfo {
             put(InstructionSet.OP_JAL, "JAL");
             put(InstructionSet.OP_LD , "LD");
             put(InstructionSet.OP_ST , "ST");
+            put(InstructionSet.OP_SB , "SB");
+            put(InstructionSet.OP_LB , "LB");
+            put(InstructionSet.OP_SI , "SI");
+            put(InstructionSet.OP_LI , "LI");
             put(InstructionSet.OP_LDI, "LDI");
         }
     };

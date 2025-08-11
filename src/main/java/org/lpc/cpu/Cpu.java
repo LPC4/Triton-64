@@ -76,6 +76,10 @@ public class Cpu {
             case InstructionSet.OP_JAL -> { set(src1, programCounter); programCounter = get(dest);}
             case InstructionSet.OP_LD  -> set(dest, memory.readLong(get(src1)));
             case InstructionSet.OP_ST  -> memory.writeLong(get(dest), get(src1));
+            case InstructionSet.OP_LB -> set(dest, memory.readByte(get(src1)));
+            case InstructionSet.OP_SB -> memory.writeByte(get(dest), (byte) get(src1));
+            case InstructionSet.OP_LI -> set(dest, memory.readInt(get(src1)));
+            case InstructionSet.OP_SI -> memory.writeInt(get(dest), (int) get(src1));
             case InstructionSet.OP_LDI -> set(dest, imm);
             default -> throw new IllegalArgumentException("Unknown opcode: " + opcode);
         }

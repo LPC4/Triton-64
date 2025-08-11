@@ -52,6 +52,10 @@ public final class InstructionSet {
     // Memory
     public static final int OP_LD  = 0x40; // LD  rdest, rsrc                ; rdest = mem[rsrc]
     public static final int OP_ST  = 0x41; // ST  rdest, rsrc                ; mem[rdest] = rsrc
+    public static final int OP_LB  = 0x42; // LB  rdest, rsrc                ; rdest = byte(mem[rsrc])
+    public static final int OP_SB  = 0x43; // SB  rdest, rsrc                ; mem[rdest] = byte(rsrc)
+    public static final int OP_LI  = 0x44; // LI  rdest, rsrc                ; rdest = int(mem[rsrc])
+    public static final int OP_SI  = 0x45; // SI  rdest, rsrc                ; mem[rdest] = int(rsrc)
 
     // Immediate load (sign-extended 10-bit)
     public static final int OP_LDI = 0x50; // LDI rdest, imm10               ; rdest = imm (-512 to +511)

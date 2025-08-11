@@ -60,14 +60,15 @@
 ; - Heap corruption detection
 ; - Automatic coalescing of adjacent free blocks
 
-global freeListHead = 0
-
 ; Constants
 global HEAP_START = 402784256
 global HEAP_SIZE = 134217728
 global HEADER_SIZE = 8
 global MIN_BLOCK_SIZE = 16
 global ALIGNMENT = 8
+
+; Globals
+global freeListHead = 0
 
 func write64(addr, value) {
     @addr = value

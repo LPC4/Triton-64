@@ -28,8 +28,9 @@ import java.util.function.Supplier;
 import static org.lpc.memory.MemoryMap.RAM_BASE;
 import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
+@SuppressWarnings("FieldCanBeLocal")
 public final class Main extends Application {
-    private static final String TRIC_FILE = "/test/test_array.tc";
+    private static final String MAIN_FILE = "/test/test_textmode.tc";
     private static final String APP_NAME = "Triton-64 VM";
     private static final int SHUTDOWN_TIMEOUT_SECONDS = 1;
     private static final int CPU_STARTUP_DELAY_MS = 500;
@@ -54,7 +55,6 @@ public final class Main extends Application {
         memory = new Memory(ioDeviceManager);
         cpu = new Cpu(memory);
 
-        // Initialize I/O devices
         keyboardDevice = new KeyboardDevice(MemoryMap.MMIO_BASE);
         timerDevice = new TimerDevice(MemoryMap.MMIO_BASE + KeyboardDevice.SIZE);
         ioDeviceManager.addDevices(keyboardDevice, timerDevice);
@@ -79,7 +79,7 @@ public final class Main extends Application {
 
     private List<String> compileStage() {
         return timeStage("Compilation", () -> {
-            TriCCompiler compiler = new TriCCompiler(loadResource(TRIC_FILE));
+            TriCCompiler compiler = new TriCCompiler(loadMainFile());
             List<String> compiledCode = compiler.compile();
             saveCompiledCode(compiledCode);
             log("Compiled %d lines of TriC code", compiledCode.size());
@@ -216,9 +216,9 @@ public final class Main extends Application {
     }
 
     @SneakyThrows
-    private String loadResource(String resourcePath) {
+    private String loadMainFile() {
         try (InputStream is = Objects.requireNonNull(
-                getClass().getResourceAsStream(resourcePath))) {
+                getClass().getResourceAsStream(Main.MAIN_FILE))) {
             return new String(is.readAllBytes());
         }
     }

@@ -14,7 +14,7 @@ public class BinaryOp extends Expression {
         // Logical
         LOGICAL_AND, LOGICAL_OR,
         // Bitwise
-        BITWISE_AND, BITWISE_OR, BITWISE_XOR,
+        AND, OR, XOR,
         SHL, SHR, SAR
     }
 
@@ -47,9 +47,9 @@ public class BinaryOp extends Expression {
             case "!=" -> Op.NE;
             case "&&" -> Op.LOGICAL_AND;
             case "||" -> Op.LOGICAL_OR;
-            case "&" -> Op.BITWISE_AND;
-            case "|" -> Op.BITWISE_OR;
-            case "^" -> Op.BITWISE_XOR;
+            case "&" -> Op.AND;
+            case "|" -> Op.OR;
+            case "^" -> Op.XOR;
             case "<<" -> Op.SHL;
             case ">>" -> Op.SHR;
             case ">>>" -> Op.SAR; // Arithmetic right shift

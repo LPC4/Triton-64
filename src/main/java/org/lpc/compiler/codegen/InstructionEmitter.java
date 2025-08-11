@@ -110,6 +110,22 @@ public class InstructionEmitter {
         instruction("ST", addrReg, valueReg);
     }
 
+    public void loadByte(String destReg, String addrReg) {
+        instruction("LB", destReg, addrReg);
+    }
+
+    public void storeByte(String addrReg, String valueReg) {
+        instruction("SB", addrReg, valueReg);
+    }
+
+    public void loadInt(String destReg, String addrReg) {
+        instruction("LI", destReg, addrReg);
+    }
+
+    public void storeInt(String addrReg, String valueReg) {
+        instruction("SI", addrReg, valueReg);
+    }
+
     public void add(String destReg, String leftReg, String rightReg) {
         instruction("ADD", destReg, leftReg, rightReg);
     }

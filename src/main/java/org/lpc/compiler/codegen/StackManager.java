@@ -6,10 +6,11 @@ import java.util.*;
 
 /**
  * Manages stack operations and variable storage.
- * Handles stack frame management and variable offset calculations.
+ * Handles stack frame management and variable offset calculations with support for variable-sized allocations.
  */
 public class StackManager {
-    private static final int WORD_SIZE = 8; // 64-bit words
+    private static final int DEFAULT_WORD_SIZE = 8; // 64-bit words
+    private static final int STACK_ALIGNMENT = 8; // Align to 8-byte boundaries
 
     private final InstructionEmitter emitter;
     private final RegisterManager registerManager;
@@ -25,8 +26,12 @@ public class StackManager {
 
     // Frame management
     public void startFunctionFrame(List<String> parameters) {
+        startFunctionFrame(parameters, DEFAULT_WORD_SIZE);
+    }
+
+    public void startFunctionFrame(List<String> parameters, int parameterSize) {
         validateNoActiveFrame();
-        currentFrame = new FunctionFrame(parameters);
+        currentFrame = new FunctionFrame(parameters, parameterSize);
     }
 
     public void endFunctionFrame() {
@@ -34,24 +39,14 @@ public class StackManager {
         currentFrame = null;
     }
 
-    // Variable management
-    public int allocateVariable(String name) {
+    public int allocateVariable(String name, int size) {
         validateActiveFrame();
-        return currentFrame.allocateLocal(name);
+        return currentFrame.allocateLocal(name, size);
     }
 
     public int getVariableOffset(String name) {
         validateActiveFrame();
         return currentFrame.getOffset(name);
-    }
-
-    // Frame information
-    public int getLocalVariableCount() {
-        return currentFrame != null ? currentFrame.getLocalCount() : 0;
-    }
-
-    public int getFrameSize() {
-        return getLocalVariableCount();
     }
 
     // Stack operations
@@ -63,9 +58,10 @@ public class StackManager {
         return stackOps.loadFromOffset(offset);
     }
 
-    // Legacy compatibility
-    public int getTotalFrameSize() {
-        return getFrameSize();
+    // Helper method to align sizes to next boundary
+    // Examples: 1->8, 8->8, 9->16, 16->16, 17->24
+    private static int alignSize(int size) {
+        return ((size + STACK_ALIGNMENT - 1) / STACK_ALIGNMENT) * STACK_ALIGNMENT;
     }
 
     // Validation helpers
@@ -122,22 +118,27 @@ public class StackManager {
         private final OffsetCalculator offsetCalculator;
 
         public FunctionFrame(List<String> parameters) {
+            this(parameters, DEFAULT_WORD_SIZE);
+        }
+
+        public FunctionFrame(List<String> parameters, int parameterSize) {
             this.variables = new VariableMap();
             this.offsetCalculator = new OffsetCalculator();
 
             // Initialize parameters with positive offsets (above frame pointer)
-            initializeParameters(parameters);
+            initializeParameters(parameters, parameterSize);
         }
 
-        private void initializeParameters(List<String> parameters) {
+        private void initializeParameters(List<String> parameters, int parameterSize) {
             int paramOffset = 16; // Start after saved ra/fp
             for (String param : parameters) {
-                variables.addParameter(param, paramOffset);
-                paramOffset += WORD_SIZE;
+                int alignedSize = alignSize(parameterSize);
+                variables.addParameter(param, paramOffset, alignedSize);
+                paramOffset += alignedSize;
             }
         }
 
-        public int allocateLocal(String name) {
+        public int allocateLocal(String name, int size) {
             if (variables.exists(name)) {
                 return variables.getOffset(name);
             }
@@ -146,8 +147,9 @@ public class StackManager {
                 throw new IllegalArgumentException("Variable " + name + " is already a parameter");
             }
 
-            int offset = offsetCalculator.getNextLocalOffset();
-            variables.addLocal(name, offset);
+            int alignedSize = alignSize(size);
+            int offset = offsetCalculator.getNextLocalOffset(alignedSize);
+            variables.addLocal(name, offset, alignedSize);
             return offset;
         }
 
@@ -155,32 +157,40 @@ public class StackManager {
             return variables.getOffset(name);
         }
 
+        public int getSize(String name) {
+            return variables.getSize(name);
+        }
+
         public int getLocalCount() {
             return variables.getLocalCount();
+        }
+
+        public int getTotalLocalSize() {
+            return offsetCalculator.getTotalLocalSize();
         }
     }
 
     /**
-     * Manages variable name to offset mappings
+     * Manages variable name to offset mappings with size information
      */
     private static class VariableMap {
-        private final Map<String, Integer> variableOffsets = new HashMap<>();
+        private final Map<String, VariableInfo> variables = new HashMap<>();
         private final Set<String> parameters = new HashSet<>();
         @Getter
         private int localCount = 0;
 
-        public void addParameter(String name, int offset) {
-            variableOffsets.put(name, offset);
+        public void addParameter(String name, int offset, int size) {
+            variables.put(name, new VariableInfo(offset, size));
             parameters.add(name);
         }
 
-        public void addLocal(String name, int offset) {
-            variableOffsets.put(name, offset);
+        public void addLocal(String name, int offset, int size) {
+            variables.put(name, new VariableInfo(offset, size));
             localCount++;
         }
 
         public boolean exists(String name) {
-            return variableOffsets.containsKey(name);
+            return variables.containsKey(name);
         }
 
         public boolean isParameter(String name) {
@@ -188,24 +198,45 @@ public class StackManager {
         }
 
         public int getOffset(String name) {
-            Integer offset = variableOffsets.get(name);
-            if (offset == null) {
+            VariableInfo info = variables.get(name);
+            if (info == null) {
                 throw new IllegalArgumentException("Variable not found: " + name);
             }
-            return offset;
+            return info.offset;
+        }
+
+        public int getSize(String name) {
+            VariableInfo info = variables.get(name);
+            if (info == null) {
+                throw new IllegalArgumentException("Variable not found: " + name);
+            }
+            return info.size;
+        }
+
+        private static class VariableInfo {
+            final int offset;
+            final int size;
+
+            VariableInfo(int offset, int size) {
+                this.offset = offset;
+                this.size = size;
+            }
         }
     }
 
     /**
-     * Calculates stack offsets for local variables
+     * Calculates stack offsets for local variables with support for variable sizes
      */
     private static class OffsetCalculator {
-        private int nextLocalOffset = -WORD_SIZE; // Start at fp-8
+        private int currentLocalOffset = 0; // Tracks total local space used
 
-        public int getNextLocalOffset() {
-            int current = nextLocalOffset;
-            nextLocalOffset -= WORD_SIZE;
-            return current;
+        public int getNextLocalOffset(int size) {
+            currentLocalOffset += size;
+            return -currentLocalOffset; // Negative offset from fp
+        }
+
+        public int getTotalLocalSize() {
+            return currentLocalOffset;
         }
     }
 }

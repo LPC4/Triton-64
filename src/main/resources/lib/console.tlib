@@ -7,11 +7,13 @@
 ; Each character occupies 4 bytes (char, fg, bg, reserved)
 ; Supports newline handling, scrolling, and cursor management
 
-; Console globals
+; Constants
+global SCREEN_WIDTH = 80
+global SCREEN_HEIGHT = 30
+global FRAMEBUFFER_BASE = 0x20220000
+
+; Globals
 global console_cursor = 0
-global screenWidth = 80
-global screenHeight = 30
-global framebufferBase = 0x20220000
 
 func console_init() {
     console_cursor = 0
@@ -21,9 +23,9 @@ func console_init() {
 func console_clear() {
     ; Clear entire screen with spaces
     var i = 0
-    var total_chars = screenWidth * screenHeight
+    var total_chars = SCREEN_WIDTH * SCREEN_HEIGHT
     while (i < total_chars) {
-        writeChar(framebufferBase + i*4, 32)  ; Space character
+        writeChar(FRAMEBUFFER_BASE + i*4, 32)  ; Space character
         i = i + 1
     }
     console_cursor = 0
@@ -35,12 +37,12 @@ func console_scroll() {
     var dst_line = 0
 
     ; Copy all lines except the last one
-    while (src_line < screenHeight) {
-        var src_start = framebufferBase + src_line * screenWidth * 4
-        var dst_start = framebufferBase + dst_line * screenWidth * 4
+    while (src_line < SCREEN_HEIGHT) {
+        var src_start = FRAMEBUFFER_BASE + src_line * SCREEN_WIDTH * 4
+        var dst_start = FRAMEBUFFER_BASE + dst_line * SCREEN_WIDTH * 4
 
         var char_in_line = 0
-        while (char_in_line < screenWidth) {
+        while (char_in_line < SCREEN_WIDTH) {
             var src_char = src_start + char_in_line * 4
             var dst_char = dst_start + char_in_line * 4
 
@@ -56,9 +58,9 @@ func console_scroll() {
         dst_line = dst_line + 1
     }
 
-    var lastLineStart = framebufferBase + (screenHeight-1) * screenWidth * 4
+    var lastLineStart = FRAMEBUFFER_BASE + (SCREEN_HEIGHT-1) * SCREEN_WIDTH * 4
     var i = 0
-    while (i < screenWidth) {
+    while (i < SCREEN_WIDTH) {
         writeChar(lastLineStart + i*4, ' ')
         i = i + 1
     }
@@ -67,23 +69,23 @@ func console_scroll() {
 func console_putc(char) {
     ; Handle control characters
     if (char == '\n') {
-        var row = console_cursor / screenWidth
-        if (row >= screenHeight-1) {
+        var row = console_cursor / SCREEN_WIDTH
+        if (row >= SCREEN_HEIGHT-1) {
             console_scroll()
-            console_cursor = (screenHeight-1) * screenWidth
+            console_cursor = (SCREEN_HEIGHT-1) * SCREEN_WIDTH
         } else {
-            console_cursor = (row + 1) * screenWidth
+            console_cursor = (row + 1) * SCREEN_WIDTH
         }
         return
     }
 
     ; Handle printable characters
-    if (console_cursor >= screenWidth * screenHeight) {
+    if (console_cursor >= SCREEN_WIDTH * SCREEN_HEIGHT) {
         console_scroll()
-        console_cursor = (screenHeight-1) * screenWidth
+        console_cursor = (SCREEN_HEIGHT-1) * SCREEN_WIDTH
     }
 
-    writeChar(framebufferBase + console_cursor*4, char)
+    writeChar(FRAMEBUFFER_BASE + console_cursor*4, char)
     console_cursor = console_cursor + 1
 }
 
