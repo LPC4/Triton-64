@@ -1,10 +1,10 @@
 package org.lpc.compiler;
 
 import org.lpc.compiler.ast.expressions.*;
-import org.lpc.compiler.ast.parent.Expression;
+import org.lpc.compiler.ast.expressions.Expression;
 import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
-import org.lpc.compiler.ast.parent.Statement;
+import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.*;
 
 import java.util.*;

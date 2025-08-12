@@ -1,12 +1,13 @@
 package org.lpc.compiler.ast.expressions;
 
 import lombok.Getter;
+import lombok.ToString;
 import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
-public class Literal<T> extends Expression {
+@ToString
+public class Literal<T> implements Expression {
     private final T value;
     private final VariableType type;
 

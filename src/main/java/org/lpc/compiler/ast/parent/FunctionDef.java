@@ -5,6 +5,7 @@ import lombok.ToString;
 import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.AstNode;
 import org.lpc.compiler.ast.AstVisitor;
+import org.lpc.compiler.ast.statements.Statement;
 
 import java.util.List;
 

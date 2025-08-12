@@ -1,4 +1,4 @@
-package org.lpc.compiler.codegen;
+package org.lpc.compiler.context_managers;
 
 import java.util.*;
 
@@ -36,16 +36,6 @@ public class RegisterManager {
         allocator.freeTemp(register);
     }
 
-    public void pinRegister(String register, String reason) {
-        pinnedRegisters.add(register);
-        registerUsage.put(register, "PINNED: " + reason);
-    }
-
-    public void unpinRegister(String register) {
-        pinnedRegisters.remove(register);
-        registerUsage.remove(register);
-    }
-
     public Set<String> getAllocatedRegisters() {
         return allocator.getAllocatedTemps();
     }
@@ -61,10 +51,6 @@ public class RegisterManager {
 
         registerUsage.clear();
         allocator.reset();
-    }
-
-    public boolean isAllocated(String register) {
-        return getAllocatedRegisters().contains(register);
     }
 
     public String getDebugInfo() {

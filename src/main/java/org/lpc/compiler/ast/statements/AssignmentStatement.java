@@ -3,12 +3,11 @@ package org.lpc.compiler.ast.statements;
 import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
-import org.lpc.compiler.ast.parent.Statement;
+import org.lpc.compiler.ast.expressions.Expression;
 
-@ToString
 @Getter
-public class AssignmentStatement extends Statement {
+@ToString
+public class AssignmentStatement implements Statement {
     private final Expression target;
     private final Expression initialValue;
 

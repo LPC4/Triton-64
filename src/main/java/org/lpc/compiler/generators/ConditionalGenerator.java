@@ -1,19 +1,21 @@
-package org.lpc.compiler.codegen;
+package org.lpc.compiler.generators;
 
-import org.lpc.compiler.CodeGenerator;
 import org.lpc.compiler.ast.expressions.BinaryOp;
-import org.lpc.compiler.ast.parent.Expression;
+import org.lpc.compiler.ast.expressions.Expression;
+import org.lpc.compiler.CodeGenerator;
+import org.lpc.compiler.context_managers.ContextManager;
+import org.lpc.compiler.context_managers.RegisterManager;
 
 /**
  * Generates conditional jumps and logical operations in assembly code
  * based on the provided expressions and conditions.
  */
 public class ConditionalGenerator {
-    private final CodeGenContext ctx;
-    private final InstructionEmitter emitter;
+    private final ContextManager ctx;
+    private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
 
-    public ConditionalGenerator(CodeGenContext ctx, InstructionEmitter emitter, RegisterManager registerManager) {
+    public ConditionalGenerator(ContextManager ctx, InstructionGenerator emitter, RegisterManager registerManager) {
         this.ctx = ctx;
         this.emitter = emitter;
         this.registerManager = registerManager;
@@ -229,7 +231,7 @@ public class ConditionalGenerator {
         String endLabel = ctx.generateLabel("comp_end");
 
         // Initialize result to 0 (false)
-        emitter.loadImmediate(resultReg, 0);
+        emitter.loadImmediate(resultReg, "0");
 
         // Generate comparison that jumps to true label if condition holds
         generateComparisonJump(comparison, trueLabel, false, visitor);
@@ -239,7 +241,7 @@ public class ConditionalGenerator {
 
         // True case: set result to 1
         emitter.label(trueLabel);
-        emitter.loadImmediate(resultReg, 1);
+        emitter.loadImmediate(resultReg, "1");
 
         emitter.label(endLabel);
         return resultReg;
@@ -251,7 +253,7 @@ public class ConditionalGenerator {
         String endLabel = ctx.generateLabel("logical_end");
 
         // Initialize result to 0 (false)
-        emitter.loadImmediate(resultReg, 0);
+        emitter.loadImmediate(resultReg, "0");
 
         // Generate logical expression that jumps to true label if condition holds
         generateLogicalJumpOnTrue(logical, trueLabel, visitor);
@@ -261,7 +263,7 @@ public class ConditionalGenerator {
 
         // True case: set result to 1
         emitter.label(trueLabel);
-        emitter.loadImmediate(resultReg, 1);
+        emitter.loadImmediate(resultReg, "1");
 
         emitter.label(endLabel);
         return resultReg;

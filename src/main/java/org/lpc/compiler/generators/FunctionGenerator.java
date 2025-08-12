@@ -1,12 +1,15 @@
-package org.lpc.compiler.codegen;
+package org.lpc.compiler.generators;
 
-import org.lpc.compiler.CodeGenerator;
 import org.lpc.compiler.VariableType;
-import org.lpc.compiler.ast.parent.Expression;
-import org.lpc.compiler.ast.parent.Statement;
+import org.lpc.compiler.ast.expressions.Expression;
+import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.Declaration;
 import org.lpc.compiler.ast.statements.IfStatement;
 import org.lpc.compiler.ast.statements.WhileStatement;
+import org.lpc.compiler.CodeGenerator;
+import org.lpc.compiler.context_managers.ContextManager;
+import org.lpc.compiler.context_managers.RegisterManager;
+import org.lpc.compiler.context_managers.StackManager;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,16 +19,16 @@ import java.util.Set;
  * Manages function generation with proper stack frame allocation based on actual variable sizes.
  * Uses natural alignment for variables to minimize memory usage.
  */
-public class FunctionManager {
+public class FunctionGenerator {
     private static final int WORD_SIZE = 8; // For register-based arguments
 
-    private final CodeGenContext ctx;
-    private final InstructionEmitter emitter;
+    private final ContextManager ctx;
+    private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
     private final StackManager stackManager;
 
-    public FunctionManager(CodeGenContext ctx, InstructionEmitter emitter,
-                           RegisterManager registerManager, StackManager stackManager) {
+    public FunctionGenerator(ContextManager ctx, InstructionGenerator emitter,
+                             RegisterManager registerManager, StackManager stackManager) {
         this.ctx = ctx;
         this.emitter = emitter;
         this.registerManager = registerManager;
@@ -33,7 +36,7 @@ public class FunctionManager {
     }
 
     public void generateFunction(String name, List<String> parameters, List<VariableType> parameterTypes, List<Statement> body,
-                                 CodeGenerator.StatementBlockGenerator bodyGenerator, String endLabel) {
+                                 String endLabel, ProgramGenerator programGenerator) {
         emitter.sectionHeader("Function: " + name);
         emitter.label(name);
 
@@ -46,17 +49,13 @@ public class FunctionManager {
         preAllocateLocalVariables(info.declarations());
 
         generateFunctionPrologue();
-        bodyGenerator.generate(body);
+        programGenerator.generateStatements(body);
         generateFunctionEpilogue(endLabel);
 
         stackManager.endFunctionFrame();
         validateRegisterState(name);
     }
 
-    /**
-     * Pre-allocates all local variables found in the function body.
-     * This ensures the stack frame size is calculated correctly before the prologue.
-     */
     private void preAllocateLocalVariables(List<Statement> declarations) {
         emitter.comment("Pre-allocating " + declarations.size() + " local variables");
 
@@ -99,7 +98,7 @@ public class FunctionManager {
     private void allocateStackSpace(int frameSize) {
         String temp = registerManager.allocateRegister("frame_alloc");
         try {
-            emitter.loadImmediate(temp, frameSize);
+            emitter.loadImmediate(temp, String.valueOf(frameSize));
             emitter.subtract("sp", "sp", temp);
             emitter.comment("Allocated " + frameSize + " bytes for stack frame");
         } finally {
@@ -110,7 +109,7 @@ public class FunctionManager {
     private void deallocateStackSpace(int frameSize) {
         String temp = registerManager.allocateRegister("frame_dealloc");
         try {
-            emitter.loadImmediate(temp, frameSize);
+            emitter.loadImmediate(temp, String.valueOf(frameSize));
             emitter.add("sp", "sp", temp);
             emitter.comment("Deallocated " + frameSize + " bytes for frame");
         } finally {
@@ -124,6 +123,7 @@ public class FunctionManager {
         } catch (Exception e) {
             emitter.comment("WARNING: Register leak detected in function " + functionName);
             emitter.comment("Debug info: " + registerManager.getDebugInfo());
+            throw new RuntimeException("Register leak detected in function " + functionName, e);
         }
     }
 
@@ -178,7 +178,7 @@ public class FunctionManager {
             if (argCount > 0) {
                 String temp = registerManager.allocateRegister("stack_cleanup");
                 try {
-                    emitter.loadImmediate(temp, (long) argCount * WORD_SIZE);
+                    emitter.loadImmediate(temp, String.valueOf(argCount * WORD_SIZE));
                     emitter.add("sp", "sp", temp);
                     emitter.comment("Cleaned up " + argCount + " arguments from stack");
                 } finally {

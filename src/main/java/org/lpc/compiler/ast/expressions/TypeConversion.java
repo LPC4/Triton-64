@@ -4,11 +4,10 @@ import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
 @ToString
-public class TypeConversion extends Expression {
+public class TypeConversion implements Expression {
     private final Expression expression;
     private final VariableType targetType;
 

@@ -1,14 +1,14 @@
 package org.lpc.compiler.ast.statements;
 
 import lombok.Getter;
-import org.lpc.compiler.ast.AstNode;
+import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Statement;
 
 import java.util.List;
 
 @Getter
-public class AsmStatement extends Statement {
+@ToString
+public class AsmStatement implements Statement {
     private final List<String> asmCode;
 
     public AsmStatement(String asmCode) {

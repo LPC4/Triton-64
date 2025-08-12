@@ -4,13 +4,13 @@ import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
 @ToString
-public class Variable extends Expression {
+public class Variable implements Expression {
     private final String name;
     private final VariableType type;
+
     public Variable(String name, VariableType type) {
         this.name = name;
         this.type = type;

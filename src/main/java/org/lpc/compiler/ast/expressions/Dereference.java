@@ -1,11 +1,12 @@
 package org.lpc.compiler.ast.expressions;
 
 import lombok.Getter;
+import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
-public class Dereference extends Expression {
+@ToString
+public class Dereference implements Expression {
     private final Expression address;
 
     public Dereference(Expression address) {

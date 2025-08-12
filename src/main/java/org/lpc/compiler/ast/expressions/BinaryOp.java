@@ -3,12 +3,10 @@ package org.lpc.compiler.ast.expressions;
 import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
 @ToString
-public class BinaryOp extends Expression {
-
+public class BinaryOp implements Expression {
     public enum Op {
         // Arithmetic
         ADD, SUB, MUL, DIV, MOD,

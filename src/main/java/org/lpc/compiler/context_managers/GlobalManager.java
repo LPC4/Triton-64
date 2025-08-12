@@ -1,8 +1,9 @@
-package org.lpc.compiler.codegen;
+package org.lpc.compiler.context_managers;
 
 import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.GlobalDeclaration;
+import org.lpc.compiler.generators.InstructionGenerator;
 
 import java.util.*;
 
@@ -11,13 +12,12 @@ import java.util.*;
  * Uses natural alignment (1 for byte, 4 for int, 8 for long) to minimize memory usage.
  */
 public class GlobalManager {
-    private final InstructionEmitter emitter;
+    private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
     private final Map<String, GlobalVariableInfo> globals = new LinkedHashMap<>();
     private int currentOffset = 0;
-    private int totalSize = 0;
 
-    public GlobalManager(InstructionEmitter emitter, RegisterManager registerManager) {
+    public GlobalManager(InstructionGenerator emitter, RegisterManager registerManager) {
         this.emitter = emitter;
         this.registerManager = registerManager;
     }
@@ -30,20 +30,14 @@ public class GlobalManager {
 
         for (GlobalDeclaration decl : globalDeclarations) {
             int size = getSizeForType(decl.getType());
-            int alignment = getAlignmentForType(decl.getType());
 
-            // Align the current offset to the required boundary
-            currentOffset = alignOffset(currentOffset, alignment);
-
-            // Record the variable with its actual offset and size
             globals.put(decl.getName(), new GlobalVariableInfo(currentOffset, size, decl.getType()));
 
-            // Move to the next position (no padding after the variable)
             currentOffset += size;
         }
 
         // Ensure the total size is aligned for proper memory management
-        totalSize = alignOffset(currentOffset, 8);
+        int totalSize = alignOffset(currentOffset, 8);
 
         allocateDataSection(totalSize);
 
@@ -55,9 +49,6 @@ public class GlobalManager {
         emitter.comment("Allocated " + totalSize + " bytes for global variables");
     }
 
-    /**
-     * Initializes global variables with their values
-     */
     public void initializeGlobals(List<GlobalDeclaration> globalDeclarations, AstVisitor<String> visitor) {
         for (GlobalDeclaration decl : globalDeclarations) {
             String valueReg = decl.getInitializer().accept(visitor);
@@ -66,16 +57,10 @@ public class GlobalManager {
         }
     }
 
-    /**
-     * Checks if a variable is a global
-     */
     public boolean isGlobal(String name) {
         return globals.containsKey(name);
     }
 
-    /**
-     * Gets the address of a global variable
-     */
     private String getGlobalAddress(String name) {
         GlobalVariableInfo info = globals.get(name);
         if (info == null) {
@@ -83,14 +68,11 @@ public class GlobalManager {
         }
 
         String addrReg = registerManager.allocateRegister("global_addr");
-        emitter.loadImmediate(addrReg, info.offset);
+        emitter.loadImmediate(addrReg, String.valueOf(info.offset));
         emitter.add(addrReg, "gp", addrReg);
         return addrReg;
     }
 
-    /**
-     * Stores a value to a global variable
-     */
     public void storeToGlobal(String name, String valueReg, VariableType type) {
         String addrReg = getGlobalAddress(name);
         try {
@@ -105,9 +87,6 @@ public class GlobalManager {
         }
     }
 
-    /**
-     * Loads a value from a global variable
-     */
     public String loadFromGlobal(String name, VariableType type) {
         String addrReg = getGlobalAddress(name);
         String valueReg = registerManager.allocateRegister("global_load_value");
@@ -124,36 +103,16 @@ public class GlobalManager {
         }
     }
 
-    /**
-     * Returns the size in bytes for a given type
-     */
     private int getSizeForType(VariableType type) {
         return switch (type) {
             case BYTE -> 1;
             case INT -> 4;
             case LONG -> 8;
-            default -> throw new IllegalArgumentException("Unsupported variable type: " + type);
         };
     }
 
-    /**
-     * Returns the required alignment for a given type
-     * (natural alignment: same as size for most architectures)
-     */
-    private int getAlignmentForType(VariableType type) {
-        return switch (type) {
-            case BYTE -> 1;
-            case INT -> 4;
-            case LONG -> 8;
-            default -> throw new IllegalArgumentException("Unsupported variable type: " + type);
-        };
-    }
-
-    /**
-     * Aligns an offset to the specified boundary
-     */
     private int alignOffset(int offset, int alignment) {
-        return (offset + alignment - 1) & ~(alignment - 1);
+        return (offset + alignment - 1) & -alignment;
     }
 
     private record GlobalVariableInfo(int offset, int size, VariableType type) {

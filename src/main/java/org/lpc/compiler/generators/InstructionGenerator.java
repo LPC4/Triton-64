@@ -1,4 +1,7 @@
-package org.lpc.compiler.codegen;
+package org.lpc.compiler.generators;
+
+import org.lpc.compiler.ast.expressions.BinaryOp;
+import org.lpc.compiler.context_managers.ContextManager;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -7,18 +10,22 @@ import java.util.stream.Collectors;
  * Handles the emission of assembly instructions and manages formatting.
  * Provides a clean interface for generating assembly code.
  */
-public class InstructionEmitter {
+public class InstructionGenerator {
     private static final String ASSEMBLY_INDENT = "    ";
     private static final String COMMENT_PREFIX = ASSEMBLY_INDENT + "; ";
 
-    private final CodeGenContext ctx;
+    private final ContextManager ctx;
 
-    public InstructionEmitter(CodeGenContext ctx) {
+    public InstructionGenerator(ContextManager ctx) {
         this.ctx = ctx;
     }
 
     public void comment(String comment) {
-        ctx.addAssembly(COMMENT_PREFIX + comment);
+        // handle multi-line comments
+        String[] lines = comment.split("\n");
+        for (String line : lines) {
+            ctx.addAssembly(COMMENT_PREFIX + line);
+        }
     }
 
     public void blankLine() {
@@ -78,8 +85,8 @@ public class InstructionEmitter {
         }
     }
 
-    public void loadImmediate(String destReg, long value) {
-        instruction("LDI", destReg, String.valueOf(value));
+    public void loadImmediate(String destReg, String value) {
+        instruction("LDI", destReg, value);
     }
 
     public void move(String destReg, String srcReg) {
@@ -176,5 +183,22 @@ public class InstructionEmitter {
 
     public void halt() {
         instruction("HLT");
+    }
+
+    public void generateBinaryOperation(final BinaryOp.Op op, final String resultReg,
+                                         final String leftReg, final String rightReg) {
+        switch (op) {
+            case ADD -> instruction("ADD", resultReg, leftReg, rightReg);
+            case SUB -> instruction("SUB", resultReg, leftReg, rightReg);
+            case MUL -> instruction("MUL", resultReg, leftReg, rightReg);
+            case DIV -> instruction("DIV", resultReg, leftReg, rightReg);
+            case AND -> instruction("AND", resultReg, leftReg, rightReg);
+            case OR  -> instruction("OR", resultReg, leftReg, rightReg);
+            case XOR -> instruction("XOR", resultReg, leftReg, rightReg);
+            case SHL -> instruction("SHL", resultReg, leftReg, rightReg);
+            case SHR -> instruction("SHR", resultReg, leftReg, rightReg);
+            case SAR -> instruction("SAR", resultReg, leftReg, rightReg);
+            default -> throw new IllegalArgumentException("Unsupported binary operator: " + op);
+        }
     }
 }

@@ -55,31 +55,25 @@ public class Cpu {
             case InstructionSet.OP_ADD -> set(dest, get(src1) + get(src2));
             case InstructionSet.OP_SUB -> set(dest, get(src1) - get(src2));
             case InstructionSet.OP_MUL -> set(dest, get(src1) * get(src2));
-            case InstructionSet.OP_DIV -> {
-                long divisor = get(src2);
-                if (divisor == 0) throw new ArithmeticException("Division by zero");
-                set(dest, get(src1) / divisor);
-            }
+            case InstructionSet.OP_DIV -> set(dest, get(src1) / get(src2));
             case InstructionSet.OP_AND -> set(dest, get(src1) & get(src2));
             case InstructionSet.OP_OR  -> set(dest, get(src1) | get(src2));
             case InstructionSet.OP_XOR -> set(dest, get(src1) ^ get(src2));
             case InstructionSet.OP_SHL -> set(dest, get(src1) << get(src2));
             case InstructionSet.OP_SHR -> set(dest, get(src1) >>> get(src2));
             case InstructionSet.OP_SAR -> set(dest, get(src1) >> get(src2));
-            // PC already incremented by 4 so can use it directly
-            // fuckass bug
             case InstructionSet.OP_JMP -> programCounter = get(dest);
             case InstructionSet.OP_JZ  -> { if (get(src1) == 0) programCounter = get(dest); }
             case InstructionSet.OP_JNZ -> { if (get(src1) != 0) programCounter = get(dest); }
-            case InstructionSet.OP_JPP -> { if (get(src1) > 0) programCounter = get(dest); }
-            case InstructionSet.OP_JPN -> { if (get(src1) < 0) programCounter = get(dest); }
+            case InstructionSet.OP_JPP -> { if (get(src1) >  0) programCounter = get(dest); }
+            case InstructionSet.OP_JPN -> { if (get(src1) <  0) programCounter = get(dest); }
             case InstructionSet.OP_JAL -> { set(src1, programCounter); programCounter = get(dest);}
             case InstructionSet.OP_LD  -> set(dest, memory.readLong(get(src1)));
             case InstructionSet.OP_ST  -> memory.writeLong(get(dest), get(src1));
-            case InstructionSet.OP_LB -> set(dest, memory.readByte(get(src1)));
-            case InstructionSet.OP_SB -> memory.writeByte(get(dest), (byte) get(src1));
-            case InstructionSet.OP_LI -> set(dest, memory.readInt(get(src1)));
-            case InstructionSet.OP_SI -> memory.writeInt(get(dest), (int) get(src1));
+            case InstructionSet.OP_LB  -> set(dest, memory.readByte(get(src1)));
+            case InstructionSet.OP_SB  -> memory.writeByte(get(dest), (byte) get(src1));
+            case InstructionSet.OP_LI  -> set(dest, memory.readInt(get(src1)));
+            case InstructionSet.OP_SI  -> memory.writeInt(get(dest), (int) get(src1));
             case InstructionSet.OP_LDI -> set(dest, imm);
             default -> throw new IllegalArgumentException("Unknown opcode: " + opcode);
         }

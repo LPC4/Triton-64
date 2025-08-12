@@ -4,12 +4,11 @@ import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
-import org.lpc.compiler.ast.parent.Statement;
+import org.lpc.compiler.ast.expressions.Expression;
 
-@ToString
 @Getter
-public class Declaration extends Statement {
+@ToString
+public class Declaration implements Statement {
     private final String name;
     private final Expression initializer;
     private final VariableType type;

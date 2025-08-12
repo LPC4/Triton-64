@@ -30,19 +30,17 @@ import static org.lpc.memory.MemoryMap.RAM_SIZE;
 
 @SuppressWarnings("FieldCanBeLocal")
 public final class Main extends Application {
-    private static final String MAIN_FILE = "/test/test_textmode.tc";
+    // Application components
+    private static final String MAIN_FILE = "/test/test_typing.tc";
     private static final String APP_NAME = "Triton-64 VM";
-    private static final int SHUTDOWN_TIMEOUT_SECONDS = 1;
-    private static final int CPU_STARTUP_DELAY_MS = 500;
-
-    private final ExecutorService executor = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "VM-Worker");
-        t.setDaemon(true);
-        return t;
-    });
-
+    private final ExecutorService executor = Executors.newCachedThreadPool(r -> 
+            new Thread(r, "VM-Worker") {{setDaemon(true);}}
+    );
+    
+    // VM components
     private Memory memory;
     private Cpu cpu;
+
     // I/O devices
     private KeyboardDevice keyboardDevice;
     private TimerDevice timerDevice;
@@ -136,7 +134,7 @@ public final class Main extends Application {
         return CompletableFuture.runAsync(() -> {
             try {
                 // Small delay to ensure UI is fully initialized
-                Thread.sleep(CPU_STARTUP_DELAY_MS);
+                Thread.sleep(500);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 return;
@@ -234,7 +232,7 @@ public final class Main extends Application {
         log("Initiating graceful shutdown...");
         executor.shutdown();
         try {
-            if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            if (!executor.awaitTermination(1, TimeUnit.SECONDS)) {
                 executor.shutdownNow();
             }
         } catch (InterruptedException e) {

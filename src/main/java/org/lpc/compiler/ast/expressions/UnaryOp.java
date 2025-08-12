@@ -3,12 +3,10 @@ package org.lpc.compiler.ast.expressions;
 import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
-import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
 @ToString
-public class UnaryOp extends Expression {
-
+public class UnaryOp implements Expression {
     public enum Op { NEG, NOT }
     private final Op op;
     private final Expression operand;
@@ -16,10 +14,12 @@ public class UnaryOp extends Expression {
     public UnaryOp(String op, Expression operand) {
         this(convertStringToOp(op), operand);
     }
+
     public UnaryOp(Op op, Expression operand) {
         this.op = op;
         this.operand = operand;
     }
+
     private static Op convertStringToOp(String op) {
         return switch (op) {
             case "-" -> Op.NEG;
@@ -27,7 +27,6 @@ public class UnaryOp extends Expression {
             default -> throw new IllegalArgumentException("Unknown unary operator: " + op);
         };
     }
-
 
     @Override
     public <T> T accept(AstVisitor<T> visitor) {

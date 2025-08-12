@@ -1,7 +1,8 @@
-package org.lpc.compiler.codegen;
+package org.lpc.compiler.context_managers;
 
 import lombok.Getter;
 import org.lpc.compiler.VariableType;
+import org.lpc.compiler.generators.InstructionGenerator;
 
 import java.util.*;
 
@@ -17,12 +18,12 @@ public class StackManager {
 
     private static final int FRAME_ALIGNMENT = 8; // 8-byte alignment for stack frames
 
-    private final InstructionEmitter emitter;
+    private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
     private final StackOperations stackOps;
     private FunctionFrame currentFrame;
 
-    public StackManager(InstructionEmitter emitter, RegisterManager registerManager) {
+    public StackManager(InstructionGenerator emitter, RegisterManager registerManager) {
         this.emitter = emitter;
         this.registerManager = registerManager;
         this.stackOps = new StackOperations();
@@ -48,11 +49,6 @@ public class StackManager {
     public int getVariableOffset(String name) {
         validateActiveFrame();
         return currentFrame.getOffset(name);
-    }
-
-    public VariableType getVariableType(String name) {
-        validateActiveFrame();
-        return currentFrame.getType(name);
     }
 
     // Stack operations
@@ -81,7 +77,7 @@ public class StackManager {
 
     // Helper method to align offset to boundary
     private static int alignOffset(int offset, int alignment) {
-        return (offset + alignment - 1) & ~(alignment - 1);
+        return (offset + alignment - 1) & -alignment;
     }
 
     // Validation helpers
@@ -133,7 +129,7 @@ public class StackManager {
 
         private String calculateAddress(int offset) {
             String addrReg = registerManager.allocateRegister("stack_addr");
-            emitter.loadImmediate(addrReg, offset);
+            emitter.loadImmediate(addrReg, String.valueOf(offset));
             emitter.add(addrReg, "fp", addrReg);
             return addrReg;
         }
@@ -150,7 +146,6 @@ public class StackManager {
             this.variables = new VariableMap();
             this.offsetCalculator = new OffsetCalculator();
 
-            // Initialize parameters with positive offsets (above frame pointer)
             initializeParameters(parameters, parameterTypes);
         }
 
@@ -176,7 +171,6 @@ public class StackManager {
                 case BYTE -> BYTE_SIZE;
                 case INT -> INT_SIZE;
                 case LONG -> LONG_SIZE;
-                default -> throw new IllegalArgumentException("Unsupported variable type: " + type);
             };
         }
 
@@ -189,7 +183,7 @@ public class StackManager {
             }
 
             // No individual alignment - just pack variables tightly
-            int offset = offsetCalculator.getNextLocalOffset(size, 1);
+            int offset = offsetCalculator.getNextLocalOffset(size);
             variables.addLocal(name, offset, size, type);
             return offset;
         }
@@ -198,23 +192,11 @@ public class StackManager {
             return variables.getOffset(name);
         }
 
-        public VariableType getType(String name) {
-            return variables.getType(name);
-        }
-
-        public int getSize(String name) {
-            return variables.getSize(name);
-        }
-
-        public int getLocalCount() {
-            return variables.getLocalCount();
-        }
-
         // Calculate frame size dynamically with only final alignment
         public int getTotalFrameSize() {
             int localSize = offsetCalculator.getTotalLocalSize();
             // Only align the final frame size to 8 bytes, not individual variables
-            return (localSize + FRAME_ALIGNMENT - 1) & ~(FRAME_ALIGNMENT - 1);
+            return (localSize + FRAME_ALIGNMENT - 1) & -FRAME_ALIGNMENT;
         }
     }
 
@@ -253,22 +235,6 @@ public class StackManager {
             return info.offset;
         }
 
-        public VariableType getType(String name) {
-            VariableInfo info = variables.get(name);
-            if (info == null) {
-                throw new IllegalArgumentException("Variable not found: " + name);
-            }
-            return info.type;
-        }
-
-        public int getSize(String name) {
-            VariableInfo info = variables.get(name);
-            if (info == null) {
-                throw new IllegalArgumentException("Variable not found: " + name);
-            }
-            return info.size;
-        }
-
         private record VariableInfo(int offset, int size, VariableType type) {
         }
     }
@@ -279,8 +245,7 @@ public class StackManager {
     private static class OffsetCalculator {
         private int currentLocalOffset = 0; // Tracks total local space used
 
-        public int getNextLocalOffset(int size, int alignment) {
-            // Don't align individual variables - just pack them tightly
+        public int getNextLocalOffset(int size) {
             int offset = -currentLocalOffset - size; // Subtract size to get the start of the variable
             currentLocalOffset += size;
             return offset;
