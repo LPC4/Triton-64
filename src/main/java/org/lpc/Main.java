@@ -189,7 +189,7 @@ public final class Main extends Application {
 
     private void saveCompiledCode(List<String> compiledCode) {
         try {
-            Path filePath = Path.of("src/main/resources/out/compiled.asm");
+            Path filePath = Path.of("src/main/resources/out/compiled.tasm");
             Files.createDirectories(filePath.getParent());
             Files.writeString(filePath, String.join("\n", compiledCode),
                     StandardOpenOption.CREATE,

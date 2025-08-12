@@ -164,6 +164,6 @@ public class Lexer {
     }
 
     private boolean isSpecialChar(char c) {
-        return "~@(){}[]=-,+-*/%<>!&|".indexOf(c) != -1;
+        return "~@(){}[]=-,+-*/%<>!&:|".indexOf(c) != -1;
     }
 }

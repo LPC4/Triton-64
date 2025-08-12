@@ -1,21 +1,25 @@
 package org.lpc.compiler.codegen;
 
 import lombok.Getter;
+import org.lpc.compiler.VariableType;
 
 import java.util.*;
 
 /**
- * Manages stack operations and variable storage.
- * Handles stack frame management and variable offset calculations with support for variable-sized allocations.
+ * Manages stack operations with natural alignment (1 for byte, 4 for int, 8 for long).
+ * This implementation minimizes memory usage while maintaining ABI compliance.
  */
 public class StackManager {
-    private static final int DEFAULT_WORD_SIZE = 8; // 64-bit words
-    private static final int STACK_ALIGNMENT = 8; // Align to 8-byte boundaries
+    // Type sizes
+    private static final int BYTE_SIZE = 1;
+    private static final int INT_SIZE = 4;
+    private static final int LONG_SIZE = 8;
+
+    private static final int FRAME_ALIGNMENT = 8; // 8-byte alignment for stack frames
 
     private final InstructionEmitter emitter;
     private final RegisterManager registerManager;
     private final StackOperations stackOps;
-
     private FunctionFrame currentFrame;
 
     public StackManager(InstructionEmitter emitter, RegisterManager registerManager) {
@@ -25,13 +29,9 @@ public class StackManager {
     }
 
     // Frame management
-    public void startFunctionFrame(List<String> parameters) {
-        startFunctionFrame(parameters, DEFAULT_WORD_SIZE);
-    }
-
-    public void startFunctionFrame(List<String> parameters, int parameterSize) {
+    public void startFunctionFrame(List<String> parameters, List<VariableType> parameterTypes) {
         validateNoActiveFrame();
-        currentFrame = new FunctionFrame(parameters, parameterSize);
+        currentFrame = new FunctionFrame(parameters, parameterTypes);
     }
 
     public void endFunctionFrame() {
@@ -39,9 +39,10 @@ public class StackManager {
         currentFrame = null;
     }
 
-    public int allocateVariable(String name, int size) {
+    public int allocateVariable(String name, VariableType type) {
         validateActiveFrame();
-        return currentFrame.allocateLocal(name, size);
+        int size = getSizeForType(type);
+        return currentFrame.allocateLocal(name, size, type);
     }
 
     public int getVariableOffset(String name) {
@@ -49,19 +50,38 @@ public class StackManager {
         return currentFrame.getOffset(name);
     }
 
+    public VariableType getVariableType(String name) {
+        validateActiveFrame();
+        return currentFrame.getType(name);
+    }
+
     // Stack operations
-    public void storeToStack(int offset, String valueReg) {
-        stackOps.storeAtOffset(offset, valueReg);
+    public void storeToStack(int offset, String valueReg, VariableType type) {
+        stackOps.storeAtOffset(offset, valueReg, type);
     }
 
-    public String loadFromStack(int offset) {
-        return stackOps.loadFromOffset(offset);
+    public String loadFromStack(int offset, VariableType type) {
+        return stackOps.loadFromOffset(offset, type);
     }
 
-    // Helper method to align sizes to next boundary
-    // Examples: 1->8, 8->8, 9->16, 16->16, 17->24
-    private static int alignSize(int size) {
-        return ((size + STACK_ALIGNMENT - 1) / STACK_ALIGNMENT) * STACK_ALIGNMENT;
+    public int getTotalFrameSize() {
+        validateActiveFrame();
+        return currentFrame.getTotalFrameSize();
+    }
+
+    // Helper method to get size for a type
+    private int getSizeForType(VariableType type) {
+        return switch (type) {
+            case BYTE -> BYTE_SIZE;
+            case INT -> INT_SIZE;
+            case LONG -> LONG_SIZE;
+            default -> throw new IllegalArgumentException("Unsupported variable type: " + type);
+        };
+    }
+
+    // Helper method to align offset to boundary
+    private static int alignOffset(int offset, int alignment) {
+        return (offset + alignment - 1) & ~(alignment - 1);
     }
 
     // Validation helpers
@@ -78,24 +98,33 @@ public class StackManager {
     }
 
     /**
-     * Encapsulates stack memory operations
+     * Encapsulates stack memory operations with type awareness
      */
     private class StackOperations {
-        public void storeAtOffset(int offset, String valueReg) {
+        public void storeAtOffset(int offset, String valueReg, VariableType type) {
             String addrReg = calculateAddress(offset);
             try {
-                emitter.store(addrReg, valueReg);
+                switch (type) {
+                    case BYTE -> emitter.storeByte(addrReg, valueReg);
+                    case INT -> emitter.storeInt(addrReg, valueReg);
+                    case LONG -> emitter.store(addrReg, valueReg);
+                    default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+                }
             } finally {
                 registerManager.freeRegister(addrReg);
             }
         }
 
-        public String loadFromOffset(int offset) {
+        public String loadFromOffset(int offset, VariableType type) {
             String addrReg = calculateAddress(offset);
             String valueReg = registerManager.allocateRegister("stack_load_value");
-
             try {
-                emitter.load(valueReg, addrReg);
+                switch (type) {
+                    case BYTE -> emitter.loadByte(valueReg, addrReg);
+                    case INT -> emitter.loadInt(valueReg, addrReg);
+                    case LONG -> emitter.load(valueReg, addrReg);
+                    default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+                }
                 return valueReg;
             } finally {
                 registerManager.freeRegister(addrReg);
@@ -117,44 +146,60 @@ public class StackManager {
         private final VariableMap variables;
         private final OffsetCalculator offsetCalculator;
 
-        public FunctionFrame(List<String> parameters) {
-            this(parameters, DEFAULT_WORD_SIZE);
-        }
-
-        public FunctionFrame(List<String> parameters, int parameterSize) {
+        public FunctionFrame(List<String> parameters, List<VariableType> parameterTypes) {
             this.variables = new VariableMap();
             this.offsetCalculator = new OffsetCalculator();
 
             // Initialize parameters with positive offsets (above frame pointer)
-            initializeParameters(parameters, parameterSize);
+            initializeParameters(parameters, parameterTypes);
         }
 
-        private void initializeParameters(List<String> parameters, int parameterSize) {
-            int paramOffset = 16; // Start after saved ra/fp
-            for (String param : parameters) {
-                int alignedSize = alignSize(parameterSize);
-                variables.addParameter(param, paramOffset, alignedSize);
-                paramOffset += alignedSize;
+        private void initializeParameters(List<String> parameters, List<VariableType> parameterTypes) {
+            int paramOffset = 16; // Start after saved ra/fp (8 bytes each)
+
+            for (int i = 0; i < parameters.size(); i++) {
+                String paramName = parameters.get(i);
+                VariableType type = parameterTypes.get(i);
+                int size = getSizeForType(type);
+
+                // Align to the type's natural alignment
+                int alignment = Math.max(1, size);
+                paramOffset = alignOffset(paramOffset, alignment);
+
+                variables.addParameter(paramName, paramOffset, size, type);
+                paramOffset += size;
             }
         }
 
-        public int allocateLocal(String name, int size) {
+        private int getSizeForType(VariableType type) {
+            return switch (type) {
+                case BYTE -> BYTE_SIZE;
+                case INT -> INT_SIZE;
+                case LONG -> LONG_SIZE;
+                default -> throw new IllegalArgumentException("Unsupported variable type: " + type);
+            };
+        }
+
+        public int allocateLocal(String name, int size, VariableType type) {
             if (variables.exists(name)) {
                 return variables.getOffset(name);
             }
-
             if (variables.isParameter(name)) {
                 throw new IllegalArgumentException("Variable " + name + " is already a parameter");
             }
 
-            int alignedSize = alignSize(size);
-            int offset = offsetCalculator.getNextLocalOffset(alignedSize);
-            variables.addLocal(name, offset, alignedSize);
+            // No individual alignment - just pack variables tightly
+            int offset = offsetCalculator.getNextLocalOffset(size, 1);
+            variables.addLocal(name, offset, size, type);
             return offset;
         }
 
         public int getOffset(String name) {
             return variables.getOffset(name);
+        }
+
+        public VariableType getType(String name) {
+            return variables.getType(name);
         }
 
         public int getSize(String name) {
@@ -165,13 +210,16 @@ public class StackManager {
             return variables.getLocalCount();
         }
 
-        public int getTotalLocalSize() {
-            return offsetCalculator.getTotalLocalSize();
+        // Calculate frame size dynamically with only final alignment
+        public int getTotalFrameSize() {
+            int localSize = offsetCalculator.getTotalLocalSize();
+            // Only align the final frame size to 8 bytes, not individual variables
+            return (localSize + FRAME_ALIGNMENT - 1) & ~(FRAME_ALIGNMENT - 1);
         }
     }
 
     /**
-     * Manages variable name to offset mappings with size information
+     * Manages variable name to offset mappings with size and type information
      */
     private static class VariableMap {
         private final Map<String, VariableInfo> variables = new HashMap<>();
@@ -179,13 +227,13 @@ public class StackManager {
         @Getter
         private int localCount = 0;
 
-        public void addParameter(String name, int offset, int size) {
-            variables.put(name, new VariableInfo(offset, size));
+        public void addParameter(String name, int offset, int size, VariableType type) {
+            variables.put(name, new VariableInfo(offset, size, type));
             parameters.add(name);
         }
 
-        public void addLocal(String name, int offset, int size) {
-            variables.put(name, new VariableInfo(offset, size));
+        public void addLocal(String name, int offset, int size, VariableType type) {
+            variables.put(name, new VariableInfo(offset, size, type));
             localCount++;
         }
 
@@ -205,6 +253,14 @@ public class StackManager {
             return info.offset;
         }
 
+        public VariableType getType(String name) {
+            VariableInfo info = variables.get(name);
+            if (info == null) {
+                throw new IllegalArgumentException("Variable not found: " + name);
+            }
+            return info.type;
+        }
+
         public int getSize(String name) {
             VariableInfo info = variables.get(name);
             if (info == null) {
@@ -213,26 +269,21 @@ public class StackManager {
             return info.size;
         }
 
-        private static class VariableInfo {
-            final int offset;
-            final int size;
-
-            VariableInfo(int offset, int size) {
-                this.offset = offset;
-                this.size = size;
-            }
+        private record VariableInfo(int offset, int size, VariableType type) {
         }
     }
 
     /**
-     * Calculates stack offsets for local variables with support for variable sizes
+     * Calculates stack offsets for local variables with support for variable sizes and alignment
      */
     private static class OffsetCalculator {
         private int currentLocalOffset = 0; // Tracks total local space used
 
-        public int getNextLocalOffset(int size) {
+        public int getNextLocalOffset(int size, int alignment) {
+            // Don't align individual variables - just pack them tightly
+            int offset = -currentLocalOffset - size; // Subtract size to get the start of the variable
             currentLocalOffset += size;
-            return -currentLocalOffset; // Negative offset from fp
+            return offset;
         }
 
         public int getTotalLocalSize() {

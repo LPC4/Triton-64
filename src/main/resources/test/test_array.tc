@@ -15,7 +15,16 @@ func main() {
 
     var alt = @(ptr + 16)     ; Same as ptr[2]
 
-    while (1) {}
-    
-    return ptr[4]             ; Returns 10
+    var arrBase = malloc(32)     ; Allocate 2 * 8 bytes
+    var arrChild1 = malloc(16)  ; Allocate 2 * 8 bytes
+    var arrChild2 = malloc(16)  ; Allocate 2 * 8 bytes
+    @arrBase = [arrChild1, arrChild2] ; Store child pointers
+    @arrChild1 = [10, 20]      ; Store values in first child
+    @arrChild2 = [30, 40]      ; Store values in second child
+
+    var child1First = arrBase[0][0] ; Gets 10
+    var child2Second = arrBase[1][1] ; Gets 40
+
+
+    return child1First + child2Second ; Returns 10 + 40 = 50
 }

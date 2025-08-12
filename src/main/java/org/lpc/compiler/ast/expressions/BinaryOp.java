@@ -1,11 +1,14 @@
 package org.lpc.compiler.ast.expressions;
 
+import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 
+@Getter
 @ToString
 public class BinaryOp extends Expression {
+
     public enum Op {
         // Arithmetic
         ADD, SUB, MUL, DIV, MOD,
@@ -18,9 +21,9 @@ public class BinaryOp extends Expression {
         SHL, SHR, SAR
     }
 
-    public final Op op;
-    public final Expression left;
-    public final Expression right;
+    private final Op op;
+    private final Expression left;
+    private final Expression right;
 
     public BinaryOp(String op, Expression left, Expression right) {
         this(convertStringToOp(op), left, right);

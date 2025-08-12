@@ -21,9 +21,9 @@ public class ConditionalGenerator {
 
     public void generateConditionalJump(Expression condition, String falseLabel, CodeGenerator visitor) {
         if (condition instanceof BinaryOp binaryOp) {
-            if (isLogicalOp(binaryOp.op)) {
+            if (isLogicalOp(binaryOp.getOp())) {
                 generateLogicalJump(binaryOp, falseLabel, visitor);
-            } else if (isComparisonOp(binaryOp.op)) {
+            } else if (isComparisonOp(binaryOp.getOp())) {
                 generateComparisonJump(binaryOp, falseLabel, true, visitor);
             } else {
                 // Other binary operations - evaluate and test for zero
@@ -40,32 +40,32 @@ public class ConditionalGenerator {
     }
 
     private void generateLogicalJump(BinaryOp logical, String falseLabel, CodeGenerator visitor) {
-        if (logical.op == BinaryOp.Op.LOGICAL_AND) {
+        if (logical.getOp() == BinaryOp.Op.LOGICAL_AND) {
             generateAndJump(logical, falseLabel, visitor);
-        } else if (logical.op == BinaryOp.Op.LOGICAL_OR) {
+        } else if (logical.getOp() == BinaryOp.Op.LOGICAL_OR) {
             generateOrJump(logical, falseLabel, visitor);
         } else {
-            throw new IllegalArgumentException("Expected logical operator, got: " + logical.op);
+            throw new IllegalArgumentException("Expected logical operator, got: " + logical.getOp());
         }
     }
 
     private void generateAndJump(BinaryOp andOp, String falseLabel, CodeGenerator visitor) {
-        emitter.comment("Logical AND: " + andOp.left + " && " + andOp.right);
+        emitter.comment("Logical AND: " + andOp.getLeft() + " && " + andOp.getRight());
 
         // If left is false, jump to false label (short-circuit)
-        generateConditionalJump(andOp.left, falseLabel, visitor);
+        generateConditionalJump(andOp.getLeft(), falseLabel, visitor);
 
         // If we reach here, left was true, so evaluate right
-        generateConditionalJump(andOp.right, falseLabel, visitor);
+        generateConditionalJump(andOp.getRight(), falseLabel, visitor);
     }
 
     private void generateOrJump(BinaryOp orOp, String falseLabel, CodeGenerator visitor) {
-        emitter.comment("Logical OR: " + orOp.left + " || " + orOp.right);
+        emitter.comment("Logical OR: " + orOp.getLeft() + " || " + orOp.getRight());
 
         String rightEvalLabel = ctx.generateLabel("or_eval_right");
 
         // If left is false, jump to evaluate right
-        generateConditionalJump(orOp.left, rightEvalLabel, visitor);
+        generateConditionalJump(orOp.getLeft(), rightEvalLabel, visitor);
 
         // Left was true, so overall condition is true - don't jump to false label
         String skipLabel = ctx.generateLabel("or_skip");
@@ -73,16 +73,16 @@ public class ConditionalGenerator {
 
         // Evaluate right operand
         emitter.label(rightEvalLabel);
-        generateConditionalJump(orOp.right, falseLabel, visitor);
+        generateConditionalJump(orOp.getRight(), falseLabel, visitor);
 
         emitter.label(skipLabel);
     }
 
     public void generateConditionalJumpOnTrue(Expression condition, String trueLabel, CodeGenerator visitor) {
         if (condition instanceof BinaryOp binaryOp) {
-            if (isLogicalOp(binaryOp.op)) {
+            if (isLogicalOp(binaryOp.getOp())) {
                 generateLogicalJumpOnTrue(binaryOp, trueLabel, visitor);
-            } else if (isComparisonOp(binaryOp.op)) {
+            } else if (isComparisonOp(binaryOp.getOp())) {
                 generateComparisonJump(binaryOp, trueLabel, false, visitor);
             } else {
                 // Other binary operations - evaluate and test for non-zero
@@ -99,46 +99,46 @@ public class ConditionalGenerator {
     }
 
     private void generateLogicalJumpOnTrue(BinaryOp logical, String trueLabel, CodeGenerator visitor) {
-        if (logical.op == BinaryOp.Op.LOGICAL_AND) {
+        if (logical.getOp() == BinaryOp.Op.LOGICAL_AND) {
             generateAndJumpOnTrue(logical, trueLabel, visitor);
-        } else if (logical.op == BinaryOp.Op.LOGICAL_OR) {
+        } else if (logical.getOp() == BinaryOp.Op.LOGICAL_OR) {
             generateOrJumpOnTrue(logical, trueLabel, visitor);
         } else {
-            throw new IllegalArgumentException("Expected logical operator, got: " + logical.op);
+            throw new IllegalArgumentException("Expected logical operator, got: " + logical.getOp());
         }
     }
 
     private void generateAndJumpOnTrue(BinaryOp andOp, String trueLabel, CodeGenerator visitor) {
-        emitter.comment("Logical AND (jump on true): " + andOp.left + " && " + andOp.right);
+        emitter.comment("Logical AND (jump on true): " + andOp.getLeft() + " && " + andOp.getRight());
 
         String falseLabel = ctx.generateLabel("and_false");
 
         // If left is false, skip to end
-        generateConditionalJump(andOp.left, falseLabel, visitor);
+        generateConditionalJump(andOp.getLeft(), falseLabel, visitor);
 
         // If we reach here, left was true, so check right
-        generateConditionalJumpOnTrue(andOp.right, trueLabel, visitor);
+        generateConditionalJumpOnTrue(andOp.getRight(), trueLabel, visitor);
 
         emitter.label(falseLabel);
     }
 
     private void generateOrJumpOnTrue(BinaryOp orOp, String trueLabel, CodeGenerator visitor) {
-        emitter.comment("Logical OR (jump on true): " + orOp.left + " || " + orOp.right);
+        emitter.comment("Logical OR (jump on true): " + orOp.getLeft() + " || " + orOp.getRight());
 
         // If left is true, jump to true label
-        generateConditionalJumpOnTrue(orOp.left, trueLabel, visitor);
+        generateConditionalJumpOnTrue(orOp.getLeft(), trueLabel, visitor);
 
         // If left was false, check right
-        generateConditionalJumpOnTrue(orOp.right, trueLabel, visitor);
+        generateConditionalJumpOnTrue(orOp.getRight(), trueLabel, visitor);
     }
 
     public void generateComparisonJump(BinaryOp comparison, String jumpLabel, boolean jumpOnFalse, CodeGenerator visitor) {
-        emitter.comment("Comparison: " + comparison.left + " " + comparison.op + " " + comparison.right);
+        emitter.comment("Comparison: " + comparison.getLeft() + " " + comparison.getOp() + " " + comparison.getRight());
 
-        String leftReg = comparison.left.accept(visitor);
-        String rightReg = comparison.right.accept(visitor);
+        String leftReg = comparison.getLeft().accept(visitor);
+        String rightReg = comparison.getRight().accept(visitor);
 
-        BinaryOp.Op op = jumpOnFalse ? invertComparison(comparison.op) : comparison.op;
+        BinaryOp.Op op = jumpOnFalse ? invertComparison(comparison.getOp()) : comparison.getOp();
 
         generateComparisonInstructions(op, leftReg, rightReg, jumpLabel);
 

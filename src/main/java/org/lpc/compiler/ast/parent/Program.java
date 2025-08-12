@@ -1,14 +1,16 @@
 package org.lpc.compiler.ast.parent;
 
+import lombok.Getter;
 import org.lpc.compiler.ast.AstNode;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.GlobalDeclaration;
 
 import java.util.List;
 
-public class Program extends AstNode {
-    public final List<GlobalDeclaration> globals;
-    public final List<FunctionDef> functions;
+@Getter
+public class Program implements AstNode {
+    private final List<GlobalDeclaration> globals;
+    private final List<FunctionDef> functions;
 
     public Program(List<GlobalDeclaration> globals, List<FunctionDef> functions) {
         this.globals = globals;

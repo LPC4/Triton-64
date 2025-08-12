@@ -2,6 +2,7 @@ package org.lpc.compiler;
 
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.expressions.*;
+import org.lpc.compiler.ast.parent.Expression;
 import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
 import org.lpc.compiler.ast.parent.Statement;
@@ -9,126 +10,135 @@ import org.lpc.compiler.ast.statements.*;
 import org.lpc.compiler.codegen.*;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 /**
- * Generates assembly code from the parsed AST.
+ * Generates assembly code from the parsed Abstract Syntax Tree (AST).
+ *
+ * This class implements the Visitor pattern to traverse the AST and generate
+ * corresponding assembly instructions using various specialized managers
+ * for different aspects of code generation.
  */
-public class CodeGenerator implements AstVisitor<String> {
-    private final Program program;
+public final class CodeGenerator implements AstVisitor<String> {
 
-    private final CodeGenContext ctx;
+    // Core dependencies
+    private final Program program;
+    private final CodeGenContext context;
     private final InstructionEmitter emitter;
+
+    // Specialized managers
     private final RegisterManager registerManager;
     private final StackManager stackManager;
     private final ConditionalGenerator conditionalGenerator;
     private final FunctionManager functionManager;
     private final GlobalManager globalManager;
 
-    // Current compilation state
+    // State tracking
     private String currentFunctionEndLabel;
 
-    public CodeGenerator(Parser parser) {
+    public CodeGenerator(final Parser parser) {
+        Objects.requireNonNull(parser, "Parser cannot be null");
+
         this.program = parser.parse();
-        this.ctx = new CodeGenContext();
-        this.emitter = new InstructionEmitter(ctx);
+        this.context = new CodeGenContext();
+        this.emitter = new InstructionEmitter(context);
+
+        // Initialize managers
         this.registerManager = new RegisterManager();
         this.stackManager = new StackManager(emitter, registerManager);
-        this.conditionalGenerator = new ConditionalGenerator(ctx, emitter, registerManager);
-        this.functionManager = new FunctionManager(ctx, emitter, registerManager, stackManager);
+        this.conditionalGenerator = new ConditionalGenerator(context, emitter, registerManager);
+        this.functionManager = new FunctionManager(context, emitter, registerManager, stackManager);
         this.globalManager = new GlobalManager(emitter, registerManager);
     }
 
     public List<String> generate() {
         try {
             program.accept(this);
-            return ctx.getAssembly();
-        } catch (Exception e) {
+            return context.getAssembly();
+        } catch (final Exception e) {
             throw new CodeGenerationException("Failed to generate code for program", e);
         }
     }
 
     @Override
-    public String visit(Program program) {
+    public String visit(final Program program) {
         emitter.comment("Program entry point");
         emitter.label("_start");
 
-        // First, allocate space for global variables
-        globalManager.allocateGlobals(program.globals);
+        // Initialize global state
+        globalManager.allocateGlobals(program.getGlobals());
+        globalManager.initializeGlobals(program.getGlobals(), this);
 
-        // Initialize global variables with their values
-        globalManager.initializeGlobals(program.globals, this);
-
-        // Jump to main and halt after return
+        // Setup main execution
         emitter.instruction("JAL", "main", "ra");
         emitter.instruction("HLT");
 
-        // Generate all functions
-        program.functions.forEach(func -> {
-            try {
-                func.accept(this);
-            } catch (Exception e) {
-                throw new CodeGenerationException("Failed to generate function: " + func.name, e);
-            }
-        });
+        // Generate all function definitions
+        generateFunctions(program.getFunctions());
+
         return null;
     }
 
     @Override
-    public String visit(FunctionDef functionDef) {
+    public String visit(final FunctionDef functionDef) {
+        final String functionName = functionDef.getName();
+
         try {
-            currentFunctionEndLabel = ctx.generateLabel(functionDef.name + "_end");
+            currentFunctionEndLabel = context.generateLabel(functionName + "_end");
 
             functionManager.generateFunction(
-                    functionDef.name,
-                    functionDef.parameters,
-                    functionDef.body,
+                    functionName,
+                    functionDef.getParameters(),
+                    functionDef.getParameterTypes(),
+                    functionDef.getBody(),
                     this::generateStatements,
                     currentFunctionEndLabel
             );
 
             return null;
-        } catch (Exception e) {
-            throw new CodeGenerationException("Failed to generate function: " + functionDef.name, e);
+        } catch (final Exception e) {
+            throw new CodeGenerationException("Failed to generate function: " + functionName, e);
         } finally {
             currentFunctionEndLabel = null;
         }
     }
 
     @Override
-    public String visit(GlobalDeclaration globalDeclaration) {
-        // This is handled in Program.visit(), so we don't need to do anything here
-        // But we need this method to implement the interface
+    public String visit(final GlobalDeclaration globalDeclaration) {
+        // Global declarations are handled in Program.visit()
         return null;
     }
 
     @Override
-    public String visit(ReturnStatement returnStatement) {
+    public String visit(final ReturnStatement returnStatement) {
         emitter.comment("return statement");
 
-        if (returnStatement.value != null) {
-            String valueReg = returnStatement.value.accept(this);
-            emitter.instruction("MOV", "a0", valueReg);
-            registerManager.freeRegister(valueReg);
-        }
+        Optional.ofNullable(returnStatement.getValue())
+                .ifPresent(value -> {
+                    final String valueReg = value.accept(this);
+                    emitter.instruction("MOV", "a0", valueReg);
+                    registerManager.freeRegister(valueReg);
+                });
 
         emitter.instruction("JMP", currentFunctionEndLabel);
         return null;
     }
 
     @Override
-    public String visit(IfStatement ifStatement) {
+    public String visit(final IfStatement ifStatement) {
         emitter.comment("If statement");
 
-        String elseLabel = ctx.generateLabel("else");
-        String endLabel = ctx.generateLabel("endif");
+        final String elseLabel = context.generateLabel("else");
+        final String endLabel = context.generateLabel("endif");
 
-        conditionalGenerator.generateConditionalJump(ifStatement.condition, elseLabel, this);
-        generateStatements(ifStatement.thenBranch);
+        conditionalGenerator.generateConditionalJump(ifStatement.getCondition(), elseLabel, this);
+        generateStatements(ifStatement.getThenBranch());
 
-        if (ifStatement.elseBranch != null && !ifStatement.elseBranch.isEmpty()) {
+        if (hasElseBranch(ifStatement)) {
             emitter.instruction("JMP", endLabel);
             emitter.label(elseLabel);
-            generateStatements(ifStatement.elseBranch);
+            generateStatements(ifStatement.getElseBranch());
             emitter.label(endLabel);
         } else {
             emitter.label(elseLabel);
@@ -138,15 +148,15 @@ public class CodeGenerator implements AstVisitor<String> {
     }
 
     @Override
-    public String visit(WhileStatement whileStatement) {
+    public String visit(final WhileStatement whileStatement) {
         emitter.comment("While loop");
 
-        String loopLabel = ctx.generateLabel("loop");
-        String endLabel = ctx.generateLabel("endloop");
+        final String loopLabel = context.generateLabel("loop");
+        final String endLabel = context.generateLabel("endloop");
 
         emitter.label(loopLabel);
-        conditionalGenerator.generateConditionalJump(whileStatement.condition, endLabel, this);
-        generateStatements(whileStatement.body);
+        conditionalGenerator.generateConditionalJump(whileStatement.getCondition(), endLabel, this);
+        generateStatements(whileStatement.getBody());
         emitter.instruction("JMP", loopLabel);
         emitter.label(endLabel);
 
@@ -154,120 +164,70 @@ public class CodeGenerator implements AstVisitor<String> {
     }
 
     @Override
-    public String visit(Declaration declaration) {
-        emitter.comment("Declaration: " + declaration.name);
+    public String visit(final Declaration declaration) {
+        emitter.comment("Declaration: " + declaration.getName());
 
-        // Allocate variable space in frame
-        int offset = stackManager.allocateVariable(declaration.name, 8);
+        final int offset = stackManager.allocateVariable(declaration.getName(), declaration.getType());
 
-        if (declaration.initializer != null) {
-            String valueReg = declaration.initializer.accept(this);
-            stackManager.storeToStack(offset, valueReg);
-            registerManager.freeRegister(valueReg);
-        }
+        Optional.ofNullable(declaration.getInitializer())
+                .ifPresent(initializer -> {
+                    final String valueReg = initializer.accept(this);
+                    stackManager.storeToStack(offset, valueReg, declaration.getType());
+                    registerManager.freeRegister(valueReg);
+                });
 
         return null;
     }
 
     @Override
-    public String visit(AssignmentStatement assignment) {
-        switch (assignment.target) {
+    public String visit(final AssignmentStatement assignment) {
+        final Expression target = assignment.getTarget();
+
+        return switch (target) {
             case Variable var -> {
-                // Check if we're assigning an array literal
-                if (assignment.initialValue instanceof ArrayLiteral arrayLit) {
-                    String valueReg = generateArrayAssignment(var, arrayLit);
-                    if (valueReg != null) {
-                        registerManager.freeRegister(valueReg);
-                    }
-                } else {
-                    String valueReg = assignment.initialValue.accept(this);
-
-                    // Check if it's a global variable first
-                    if (globalManager.isGlobal(var.name)) {
-                        emitter.comment("Assignment to global variable: " + var.name);
-                        globalManager.storeToGlobal(var.name, valueReg);
-                    } else {
-                        emitter.comment("Assignment to local variable: " + var.name);
-                        int offset = stackManager.getVariableOffset(var.name);
-                        stackManager.storeToStack(offset, valueReg);
-                    }
-
-                    registerManager.freeRegister(valueReg);
-                }
+                handleVariableAssignment(var, assignment.getInitialValue());
+                yield null;
             }
             case Dereference deref -> {
-                // Check if we're assigning an array literal to a dereferenced address
-                if (assignment.initialValue instanceof ArrayLiteral arrayLit) {
-                    String addrReg = deref.address.accept(this);
-                    generateArrayToMemory(addrReg, arrayLit);
-                    registerManager.freeRegister(addrReg);
-                } else {
-                    String addrReg = deref.address.accept(this);
-                    String valueReg = assignment.initialValue.accept(this);
-                    emitter.comment("Assignment to dereferenced address at " + addrReg);
-                    emitter.instruction("ST", addrReg, valueReg);
-                    registerManager.freeRegister(addrReg);
-                    registerManager.freeRegister(valueReg);
-                }
+                handleDereferenceAssignment(deref, assignment.getInitialValue());
+                yield null;
             }
             case ArrayIndex arrayIdx -> {
-                // Handle array index assignment: arr[i] = value
-                String arrayReg = arrayIdx.array.accept(this);
-                String indexReg = arrayIdx.index.accept(this);
-                String valueReg = assignment.initialValue.accept(this);
-
-                String offsetReg = registerManager.allocateRegister();
-                String addrReg = registerManager.allocateRegister();
-
-                emitter.comment("Array index assignment");
-
-                // Calculate offset: index * 8
-                emitter.instruction("LDI", offsetReg, "8");
-                emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
-
-                // Calculate address: array + offset
-                emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
-
-                // Store value at calculated address
-                emitter.instruction("ST", addrReg, valueReg);
-
-                registerManager.freeRegister(arrayReg);
-                registerManager.freeRegister(indexReg);
-                registerManager.freeRegister(valueReg);
-                registerManager.freeRegister(offsetReg);
-                registerManager.freeRegister(addrReg);
+                handleArrayIndexAssignment(arrayIdx, assignment.getInitialValue());
+                yield null;
             }
-            case null, default -> throw new IllegalStateException("Unsupported assignment target");
-        }
-        return null;
+            case null -> throw new IllegalStateException("Assignment target cannot be null");
+            default -> throw new IllegalStateException("Unsupported assignment target: " + target.getClass());
+        };
     }
 
     @Override
-    public String visit(AsmStatement asmStatement) {
+    public String visit(final AsmStatement asmStatement) {
         emitter.comment("Inline assembly statement");
-        for (String line : asmStatement.asmCode) {
-            emitter.instruction(line.trim());
-        }
+        asmStatement.getAsmCode()
+                .stream()
+                .map(String::trim)
+                .forEach(emitter::instruction);
         return null;
     }
 
     @Override
-    public String visit(Variable variable) {
-        // Check if it's a global first
-        if (globalManager.isGlobal(variable.name)) {
-            return globalManager.loadFromGlobal(variable.name);
+    public String visit(final Variable variable) {
+        final String variableName = variable.getName();
+
+        if (globalManager.isGlobal(variableName)) {
+            return globalManager.loadFromGlobal(variableName, variable.getType());
         }
 
-        // Otherwise it's a local variable
-        int offset = stackManager.getVariableOffset(variable.name);
-        return stackManager.loadFromStack(offset);
+        final int offset = stackManager.getVariableOffset(variableName);
+        return stackManager.loadFromStack(offset, variable.getType());
     }
 
     @Override
-    public String visit(ExpressionStatement expressionStatement) {
+    public String visit(final ExpressionStatement expressionStatement) {
         emitter.comment("Expression statement");
 
-        String resultReg = expressionStatement.expression.accept(this);
+        final String resultReg = expressionStatement.getExpression().accept(this);
         if (resultReg != null) {
             registerManager.freeRegister(resultReg);
         }
@@ -276,169 +236,296 @@ public class CodeGenerator implements AstVisitor<String> {
     }
 
     @Override
-    public String visit(BinaryOp binaryOp) {
-        // Handle comparison operators - generate result in register
-        if (ConditionalGenerator.isComparisonOp(binaryOp.op)) {
+    public String visit(final BinaryOp binaryOp) {
+        final BinaryOp.Op operator = binaryOp.getOp();
+
+        // Handle comparison operators
+        if (ConditionalGenerator.isComparisonOp(operator)) {
             return conditionalGenerator.generateComparisonResult(binaryOp, this);
         }
 
-        // Handle logical operators (&&, ||) - generate result in register
-        if (ConditionalGenerator.isLogicalOp(binaryOp.op)) {
+        // Handle logical operators
+        if (ConditionalGenerator.isLogicalOp(operator)) {
             return conditionalGenerator.generateLogicalResult(binaryOp, this);
         }
 
         // Handle arithmetic/bitwise operations
-        emitter.comment("Binary operation: " + binaryOp.op);
-
-        String leftReg = binaryOp.left.accept(this);
-        String rightReg = binaryOp.right.accept(this);
-        String resultReg = registerManager.allocateRegister();
-
-        generateBinaryOperation(binaryOp.op, resultReg, leftReg, rightReg);
-
-        registerManager.freeRegister(leftReg);
-        registerManager.freeRegister(rightReg);
-
-        return resultReg;
+        return generateArithmeticOperation(binaryOp);
     }
 
     @Override
-    public String visit(UnaryOp unaryOp) {
-        emitter.comment("Unary operation: " + unaryOp.op);
+    public String visit(final UnaryOp unaryOp) {
+        emitter.comment("Unary operation: " + unaryOp.getOp());
 
-        String operandReg = unaryOp.operand.accept(this);
-        String resultReg = registerManager.allocateRegister();
+        final String operandReg = unaryOp.getOperand().accept(this);
+        final String resultReg = registerManager.allocateRegister();
 
-        switch (unaryOp.op) {
-            case NEG -> emitter.instruction("NEG", resultReg, operandReg);
-            case NOT -> emitter.instruction("NOT", resultReg, operandReg);
-            default -> throw new IllegalArgumentException("Unsupported unary operator: " + unaryOp.op);
-        }
+        generateUnaryOperation(unaryOp.getOp(), resultReg, operandReg);
 
         registerManager.freeRegister(operandReg);
         return resultReg;
     }
 
     @Override
-    public String visit(FunctionCall functionCall) {
-        emitter.comment("Function call: " + functionCall.name);
+    public String visit(final FunctionCall functionCall) {
+        emitter.comment("Function call: " + functionCall.getName());
 
-        if (functionCall.arguments.size() > 7) {
-            throw new IllegalArgumentException("Too many arguments for function: " + functionCall.name);
-        }
+        validateArgumentCount(functionCall);
 
-        return functionManager.generateFunctionCall(functionCall.name, functionCall.arguments, this);
+        return functionManager.generateFunctionCall(
+                functionCall.getName(),
+                functionCall.getArguments(),
+                this
+        );
     }
 
     @Override
-    public String visit(LongLiteral longLiteral) {
-        String reg = registerManager.allocateRegister();
-        emitter.instruction("LDI", reg, String.valueOf(longLiteral.value));
+    public String visit(final Literal<?> literal) {
+        final String reg = registerManager.allocateRegister();
+        emitter.instruction("LDI", reg, String.valueOf(literal.getValue()));
         return reg;
     }
 
     @Override
-    public String visit(Dereference dereference) {
-        String addrReg = dereference.address.accept(this);
-        String resultReg = registerManager.allocateRegister();
+    public String visit(final Dereference dereference) {
+        final String addrReg = dereference.getAddress().accept(this);
+        final String resultReg = registerManager.allocateRegister();
+
         emitter.instruction("LD", resultReg, addrReg);
         registerManager.freeRegister(addrReg);
+
         return resultReg;
     }
 
     @Override
-    public String visit(ArrayLiteral arrayLiteral) {
-        emitter.comment("Array literal with " + arrayLiteral.elements.size() + " elements");
+    public String visit(final TypeConversion conversion) {
+        emitter.comment("Type conversion to " + conversion.getTargetType());
 
-        if (arrayLiteral.elements.isEmpty()) {
-            // Return null pointer for empty array
-            String resultReg = registerManager.allocateRegister();
+        final String sourceReg = conversion.getExpression().accept(this);
+        final String resultReg = registerManager.allocateRegister("conversion_result");
+
+        final VariableType sourceType = getExpressionType(conversion.getExpression());
+        final VariableType targetType = conversion.getTargetType();
+
+        performTypeConversion(sourceType, targetType, sourceReg, resultReg);
+
+        registerManager.freeRegister(sourceReg);
+        return resultReg;
+    }
+
+    @Override
+    public String visit(final ArrayLiteral arrayLiteral) {
+        emitter.comment("Array literal with " + arrayLiteral.getElements().size() + " elements");
+
+        if (arrayLiteral.getElements().isEmpty()) {
+            final String resultReg = registerManager.allocateRegister();
             emitter.instruction("LDI", resultReg, "0");
             return resultReg;
         }
 
-        // For array literals used in contexts where we need a value (not assignment),
-        // we could allocate memory dynamically, but that's complex.
-        // For now, throw an error suggesting proper usage.
-        throw new IllegalStateException("Array literal must be used in assignment context. Use: var x = malloc(size); @x = [1,2,3];");
+        throw new IllegalStateException(
+                "Array literal must be used in assignment context. Use: var x = malloc(size); @x = [1,2,3];"
+        );
     }
 
     @Override
-    public String visit(ArrayIndex arrayIndex) {
+    public String visit(final ArrayIndex arrayIndex) {
         emitter.comment("Array indexing");
 
-        String arrayReg = arrayIndex.array.accept(this);
-        String indexReg = arrayIndex.index.accept(this);
-        String offsetReg = registerManager.allocateRegister();
-        String addrReg = registerManager.allocateRegister();
-        String resultReg = registerManager.allocateRegister();
+        final String arrayReg = arrayIndex.getArray().accept(this);
+        final String indexReg = arrayIndex.getIndex().accept(this);
 
-        // Calculate offset: index * 8
-        emitter.instruction("LDI", offsetReg, "8");
-        emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
-
-        // Calculate address: array + offset
-        emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
-
-        // Load value from calculated address
-        emitter.instruction("LD", resultReg, addrReg);
-
-        registerManager.freeRegister(arrayReg);
-        registerManager.freeRegister(indexReg);
-        registerManager.freeRegister(offsetReg);
-        registerManager.freeRegister(addrReg);
-
-        return resultReg;
-    }
-
-    // Helper methods for array operations
-    private String generateArrayAssignment(Variable var, ArrayLiteral arrayLit) {
-        emitter.comment("Array assignment to variable: " + var.name);
-
-        // The variable should contain the address where we want to store the array
-        String addrReg;
-        if (globalManager.isGlobal(var.name)) {
-            addrReg = globalManager.loadFromGlobal(var.name);
-        } else {
-            int offset = stackManager.getVariableOffset(var.name);
-            addrReg = stackManager.loadFromStack(offset);
+        try {
+            return performArrayIndexing(arrayReg, indexReg);
+        } finally {
+            registerManager.freeRegister(arrayReg);
+            registerManager.freeRegister(indexReg);
         }
-
-        generateArrayToMemory(addrReg, arrayLit);
-        registerManager.freeRegister(addrReg);
-        return null;
     }
 
-    private void generateArrayToMemory(String baseAddrReg, ArrayLiteral arrayLit) {
+    // Helper methods organized by functionality
+
+    private void generateFunctions(final List<FunctionDef> functions) {
+        functions.forEach(func -> {
+            try {
+                func.accept(this);
+            } catch (final Exception e) {
+                throw new CodeGenerationException("Failed to generate function: " + func.getName(), e);
+            }
+        });
+    }
+
+    private boolean hasElseBranch(final IfStatement ifStatement) {
+        final List<Statement> elseBranch = ifStatement.getElseBranch();
+        return elseBranch != null && !elseBranch.isEmpty();
+    }
+
+    private void handleVariableAssignment(final Variable var, final Expression value) {
+        if (value instanceof ArrayLiteral arrayLit) {
+            generateArrayAssignment(var, arrayLit);
+        } else {
+            final String valueReg = value.accept(this);
+
+            if (globalManager.isGlobal(var.getName())) {
+                emitter.comment("Assignment to global variable: " + var.getName());
+                globalManager.storeToGlobal(var.getName(), valueReg, var.getType());
+            } else {
+                emitter.comment("Assignment to local variable: " + var.getName());
+                final int offset = stackManager.getVariableOffset(var.getName());
+                stackManager.storeToStack(offset, valueReg, var.getType());
+            }
+
+            registerManager.freeRegister(valueReg);
+        }
+    }
+
+    private void handleDereferenceAssignment(final Dereference deref, final Expression value) {
+        final String addrReg = deref.getAddress().accept(this);
+
+        try {
+            if (value instanceof ArrayLiteral arrayLit) {
+                generateArrayToMemory(addrReg, arrayLit);
+            } else {
+                final String valueReg = value.accept(this);
+                try {
+                    emitter.comment("Assignment to dereferenced address at " + addrReg);
+                    emitter.instruction("ST", addrReg, valueReg);
+                } finally {
+                    registerManager.freeRegister(valueReg);
+                }
+            }
+        } finally {
+            registerManager.freeRegister(addrReg);
+        }
+    }
+
+    private void handleArrayIndexAssignment(final ArrayIndex arrayIdx, final Expression value) {
+        final String arrayReg = arrayIdx.getArray().accept(this);
+        final String indexReg = arrayIdx.getIndex().accept(this);
+        final String valueReg = value.accept(this);
+
+        final String offsetReg = registerManager.allocateRegister();
+        final String addrReg = registerManager.allocateRegister();
+
+        try {
+            emitter.comment("Array index assignment");
+
+            // Calculate address: array + (index * 8)
+            emitter.instruction("LDI", offsetReg, "8");
+            emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
+            emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
+            emitter.instruction("ST", addrReg, valueReg);
+        } finally {
+            registerManager.freeRegister(arrayReg);
+            registerManager.freeRegister(indexReg);
+            registerManager.freeRegister(valueReg);
+            registerManager.freeRegister(offsetReg);
+            registerManager.freeRegister(addrReg);
+        }
+    }
+
+    private String generateArithmeticOperation(final BinaryOp binaryOp) {
+        emitter.comment("Binary operation: " + binaryOp.getOp());
+
+        final String leftReg = binaryOp.getLeft().accept(this);
+        final String rightReg = binaryOp.getRight().accept(this);
+        final String resultReg = registerManager.allocateRegister();
+
+        try {
+            generateBinaryOperation(binaryOp.getOp(), resultReg, leftReg, rightReg);
+            return resultReg;
+        } finally {
+            registerManager.freeRegister(leftReg);
+            registerManager.freeRegister(rightReg);
+        }
+    }
+
+    private void generateUnaryOperation(final UnaryOp.Op operator, final String resultReg, final String operandReg) {
+        switch (operator) {
+            case NEG -> emitter.instruction("NEG", resultReg, operandReg);
+            case NOT -> emitter.instruction("NOT", resultReg, operandReg);
+            default -> throw new IllegalArgumentException("Unsupported unary operator: " + operator);
+        }
+    }
+
+    private void validateArgumentCount(final FunctionCall functionCall) {
+        if (functionCall.getArguments().size() > 7) {
+            throw new IllegalArgumentException("Too many arguments for function: " + functionCall.getName());
+        }
+    }
+
+    private void performTypeConversion(final VariableType sourceType, final VariableType targetType,
+                                       final String sourceReg, final String resultReg) {
+
+        final TypeConverter converter = new TypeConverter(emitter, registerManager);
+        converter.convert(sourceType, targetType, sourceReg, resultReg);
+    }
+
+    private String performArrayIndexing(final String arrayReg, final String indexReg) {
+        final String offsetReg = registerManager.allocateRegister();
+        final String addrReg = registerManager.allocateRegister();
+        final String resultReg = registerManager.allocateRegister();
+
+        try {
+            // Calculate address: array + (index * 8)
+            emitter.instruction("LDI", offsetReg, "8");
+            emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
+            emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
+            emitter.instruction("LD", resultReg, addrReg);
+
+            return resultReg;
+        } finally {
+            registerManager.freeRegister(offsetReg);
+            registerManager.freeRegister(addrReg);
+        }
+    }
+
+    private void generateArrayAssignment(final Variable var, final ArrayLiteral arrayLit) {
+        emitter.comment("Array assignment to variable: " + var.getName());
+
+        final String addrReg = globalManager.isGlobal(var.getName())
+                ? globalManager.loadFromGlobal(var.getName(), VariableType.LONG)
+                : stackManager.loadFromStack(stackManager.getVariableOffset(var.getName()), VariableType.LONG);
+
+        try {
+            generateArrayToMemory(addrReg, arrayLit);
+        } finally {
+            registerManager.freeRegister(addrReg);
+        }
+    }
+
+    private void generateArrayToMemory(final String baseAddrReg, final ArrayLiteral arrayLit) {
         emitter.comment("Storing array literal to memory at " + baseAddrReg);
 
-        String offsetReg = registerManager.allocateRegister();
-        String currentAddrReg = registerManager.allocateRegister();
+        final String offsetReg = registerManager.allocateRegister();
+        final String currentAddrReg = registerManager.allocateRegister();
 
-        for (int i = 0; i < arrayLit.elements.size(); i++) {
-            // Calculate address: base + (i * 8)
-            emitter.instruction("LDI", offsetReg, String.valueOf(i * 8));
-            emitter.instruction("ADD", currentAddrReg, baseAddrReg, offsetReg);
+        try {
+            final List<Expression> elements = arrayLit.getElements();
+            for (int i = 0; i < elements.size(); i++) {
+                // Calculate address: base + (i * 8)
+                emitter.instruction("LDI", offsetReg, String.valueOf(i * 8));
+                emitter.instruction("ADD", currentAddrReg, baseAddrReg, offsetReg);
 
-            // Generate code for the element value
-            String elementReg = arrayLit.elements.get(i).accept(this);
-
-            // store
-            emitter.instruction("ST", currentAddrReg, elementReg);
-
-            registerManager.freeRegister(elementReg);
+                final String elementReg = elements.get(i).accept(this);
+                try {
+                    emitter.instruction("ST", currentAddrReg, elementReg);
+                } finally {
+                    registerManager.freeRegister(elementReg);
+                }
+            }
+        } finally {
+            registerManager.freeRegister(offsetReg);
+            registerManager.freeRegister(currentAddrReg);
         }
-
-        registerManager.freeRegister(offsetReg);
-        registerManager.freeRegister(currentAddrReg);
     }
 
-    // Existing helper methods
-    private void generateStatements(List<Statement> statements) {
+    private void generateStatements(final List<Statement> statements) {
         statements.forEach(stmt -> stmt.accept(this));
     }
 
-    private void generateBinaryOperation(BinaryOp.Op op, String resultReg, String leftReg, String rightReg) {
+    private void generateBinaryOperation(final BinaryOp.Op op, final String resultReg,
+                                         final String leftReg, final String rightReg) {
         switch (op) {
             case ADD -> emitter.instruction("ADD", resultReg, leftReg, rightReg);
             case SUB -> emitter.instruction("SUB", resultReg, leftReg, rightReg);
@@ -454,15 +541,123 @@ public class CodeGenerator implements AstVisitor<String> {
         }
     }
 
-    // Functional interface for generating statement blocks
+    private VariableType getExpressionType(final Expression expression) {
+        return switch (expression) {
+            case Variable var -> var.getType();
+            case Literal<?> lit -> lit.getType();
+            case TypeConversion typeConv -> typeConv.getTargetType();
+            case BinaryOp binOp -> getExpressionType(binOp.getLeft());
+            case null -> VariableType.LONG; // Default fallback
+            default -> VariableType.LONG; // Default fallback
+        };
+    }
+
+    /**
+     * Functional interface for generating statement blocks.
+     */
     @FunctionalInterface
     public interface StatementBlockGenerator {
         void generate(List<Statement> statements);
     }
 
-    public static class CodeGenerationException extends RuntimeException {
-        public CodeGenerationException(String message, Throwable cause) {
+    /**
+     * Exception thrown when code generation fails.
+     */
+    public static final class CodeGenerationException extends RuntimeException {
+        public CodeGenerationException(final String message, final Throwable cause) {
             super(message, cause);
+        }
+    }
+
+    /**
+     * Helper class for type conversions.
+     */
+    private static final class TypeConverter {
+        private final InstructionEmitter emitter;
+        private final RegisterManager registerManager;
+
+        private TypeConverter(final InstructionEmitter emitter, final RegisterManager registerManager) {
+            this.emitter = emitter;
+            this.registerManager = registerManager;
+        }
+
+        private void convert(final VariableType sourceType, final VariableType targetType,
+                             final String sourceReg, final String resultReg) {
+
+            if (sourceType == VariableType.BYTE) {
+                convertFromByte(targetType, sourceReg, resultReg);
+            } else if (sourceType == VariableType.INT) {
+                convertFromInt(targetType, sourceReg, resultReg);
+            } else if (sourceType == VariableType.LONG) {
+                convertFromLong(targetType, sourceReg, resultReg);
+            } else {
+                // Unknown or same type - just move
+                emitter.move(resultReg, sourceReg);
+            }
+        }
+
+        private void convertFromByte(final VariableType targetType, final String sourceReg, final String resultReg) {
+            switch (targetType) {
+                case INT -> {
+                    emitter.comment("Converting BYTE to INT (sign extend 8→32)");
+                    emitter.shiftLeft(resultReg, sourceReg, "24");
+                    emitter.shiftArithmeticRight(resultReg, resultReg, "24");
+                }
+                case LONG -> {
+                    emitter.comment("Converting BYTE to LONG (sign extend 8→64)");
+                    emitter.shiftLeft(resultReg, sourceReg, "56");
+                    emitter.shiftArithmeticRight(resultReg, resultReg, "56");
+                }
+                default -> {
+                    emitter.comment("BYTE to BYTE (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                }
+            }
+        }
+
+        private void convertFromInt(final VariableType targetType, final String sourceReg, final String resultReg) {
+            switch (targetType) {
+                case LONG -> {
+                    emitter.comment("Converting INT to LONG (sign extend 32→64)");
+                    emitter.shiftLeft(resultReg, sourceReg, "32");
+                    emitter.shiftArithmeticRight(resultReg, resultReg, "32");
+                }
+                case BYTE -> {
+                    emitter.comment("Converting INT to BYTE (truncate 32→8)");
+                    truncateWithMask(sourceReg, resultReg, 0xFF);
+                }
+                default -> {
+                    emitter.comment("INT to INT (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                }
+            }
+        }
+
+        private void convertFromLong(final VariableType targetType, final String sourceReg, final String resultReg) {
+            switch (targetType) {
+                case BYTE -> {
+                    emitter.comment("Converting LONG to BYTE (truncate 64→8)");
+                    truncateWithMask(sourceReg, resultReg, 0xFF);
+                }
+                case INT -> {
+                    emitter.comment("Converting LONG to INT (truncate 64→32)");
+                    truncateWithMask(sourceReg, resultReg, 0xFFFFFFFFL);
+                }
+                default -> {
+                    emitter.comment("LONG to LONG (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                }
+            }
+        }
+
+        private void truncateWithMask(final String sourceReg, final String resultReg, final long mask) {
+            final String maskReg = registerManager.allocateRegister("mask");
+            try {
+                emitter.loadImmediate(maskReg, mask);
+                emitter.and(resultReg, sourceReg, maskReg);
+            } finally {
+                registerManager.freeRegister(maskReg);
+            }
         }
     }
 }

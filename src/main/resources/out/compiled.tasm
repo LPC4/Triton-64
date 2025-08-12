@@ -1,5 +1,12 @@
     ; Program entry point
 _start:
+
+    ; ====================================
+    ; Global variables
+    ; ====================================
+    ADD hp, gp, 0
+    ; Allocated 0 bytes for global variables
+    ; Total global data size: 0 bytes
     JAL main, ra
     HLT
 
@@ -7,13 +14,23 @@ _start:
     ; Function: main
     ; ======================================
 main:
+    ; Pre-allocating 8 local variables
+    ; Pre-allocated variable: screenWidth (LONG)
+    ; Pre-allocated variable: screenHeight (LONG)
+    ; Pre-allocated variable: framebufferBase (LONG)
+    ; Pre-allocated variable: framebufferSize (LONG)
+    ; Pre-allocated variable: mmioBase (LONG)
+    ; Pre-allocated variable: queueHeadOffset (LONG)
+    ; Pre-allocated variable: cursorIndex (LONG)
+    ; Pre-allocated variable: inputChar (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
+    ; Total frame size: 64 bytes
     LDI t0, 64
     SUB sp, sp, t0
-    ; Allocated 64 bytes for 8 local variables
+    ; Allocated 64 bytes for stack frame
     ; Declaration: screenWidth
     LDI t0, 80
     LDI t1, -8
@@ -74,7 +91,7 @@ loop_1:
     ADD t0, fp, t0
     ST t0, t1
     ; If statement
-    ; Comparison: Variable(name=inputChar) NE LongLiteral(value=255)
+    ; Comparison: Variable(name=inputChar, type=LONG) NE org.lpc.compiler.ast.expressions.Literal@436e8625
     LDI t0, -64
     ADD t0, fp, t0
     LD t1, t0
@@ -133,18 +150,20 @@ main_end_0:
     ; Deallocated 64 bytes for frame
     POP fp
     POP ra
-    JMP ra                               ; Return from main
+    JMP ra                               ; Return from function
 
     ; ===============================
     ; Function: handleInput
     ; ===============================
 handleInput:
+    ; Pre-allocating 0 local variables
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
+    ; Total frame size: 0 bytes
     ; If statement
-    ; Comparison: Variable(name=char) EQ LongLiteral(value=10)
+    ; Comparison: Variable(name=char, type=LONG) EQ org.lpc.compiler.ast.expressions.Literal@28ad310d
     LDI t0, 16
     ADD t0, fp, t0
     LD t1, t0
@@ -181,7 +200,7 @@ handleInput:
     JMP endif_7
 else_6:
     ; If statement
-    ; Comparison: Variable(name=char) EQ LongLiteral(value=8)
+    ; Comparison: Variable(name=char, type=LONG) EQ org.lpc.compiler.ast.expressions.Literal@60f085bd
     LDI t0, 16
     ADD t0, fp, t0
     LD t1, t0
@@ -255,16 +274,18 @@ endif_7:
 handleInput_end_5:
     POP fp
     POP ra
-    JMP ra                               ; Return from handleInput
+    JMP ra                               ; Return from function
 
     ; =============================
     ; Function: handleNewline
     ; =============================
 handleNewline:
+    ; Pre-allocating 0 local variables
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
+    ; Total frame size: 0 bytes
     ; Binary operation: MUL
     ; Binary operation: ADD
     ; Binary operation: DIV
@@ -286,7 +307,7 @@ handleNewline:
     ADD t1, fp, t1
     ST t1, t0
     ; If statement
-    ; Comparison: Variable(name=cursorIndex) GE Variable(name=framebufferSize)
+    ; Comparison: Variable(name=cursorIndex, type=LONG) GE Variable(name=framebufferSize, type=LONG)
     LDI t0, 16
     ADD t0, fp, t0
     LD t1, t0
@@ -312,21 +333,24 @@ else_11:
 handleNewline_end_10:
     POP fp
     POP ra
-    JMP ra                               ; Return from handleNewline
+    JMP ra                               ; Return from function
 
     ; ===========================
     ; Function: handleBackspace
     ; ===========================
 handleBackspace:
+    ; Pre-allocating 1 local variables
+    ; Pre-allocated variable: addr (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
-    LDI t0, 16
+    ; Total frame size: 8 bytes
+    LDI t0, 8
     SUB sp, sp, t0
-    ; Allocated 16 bytes for 1 local variables
+    ; Allocated 8 bytes for stack frame
     ; If statement
-    ; Comparison: Variable(name=cursorIndex) GT LongLiteral(value=0)
+    ; Comparison: Variable(name=cursorIndex, type=LONG) GT org.lpc.compiler.ast.expressions.Literal@596d76f9
     LDI t0, 16
     ADD t0, fp, t0
     LD t1, t0
@@ -386,26 +410,29 @@ else_14:
     JMP handleBackspace_end_13
     ; Function epilogue
 handleBackspace_end_13:
-    LDI t0, 16
+    LDI t0, 8
     ADD sp, sp, t0
-    ; Deallocated 16 bytes for frame
+    ; Deallocated 8 bytes for frame
     POP fp
     POP ra
-    JMP ra                               ; Return from handleBackspace
+    JMP ra                               ; Return from function
 
     ; ==========================
     ; Function: handleNormalChar
     ; ==========================
 handleNormalChar:
+    ; Pre-allocating 1 local variables
+    ; Pre-allocated variable: addr (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
-    LDI t0, 16
+    ; Total frame size: 8 bytes
+    LDI t0, 8
     SUB sp, sp, t0
-    ; Allocated 16 bytes for 1 local variables
+    ; Allocated 8 bytes for stack frame
     ; If statement
-    ; Comparison: Variable(name=cursorIndex) LT Variable(name=framebufferSize)
+    ; Comparison: Variable(name=cursorIndex, type=LONG) LT Variable(name=framebufferSize, type=LONG)
     LDI t0, 24
     ADD t0, fp, t0
     LD t1, t0
@@ -469,24 +496,28 @@ else_18:
     JMP handleNormalChar_end_17
     ; Function epilogue
 handleNormalChar_end_17:
-    LDI t0, 16
+    LDI t0, 8
     ADD sp, sp, t0
-    ; Deallocated 16 bytes for frame
+    ; Deallocated 8 bytes for frame
     POP fp
     POP ra
-    JMP ra                               ; Return from handleNormalChar
+    JMP ra                               ; Return from function
 
     ; =================================
     ; Function: writeChar
     ; =================================
 writeChar:
+    ; Pre-allocating 2 local variables
+    ; Pre-allocated variable: fgColor (LONG)
+    ; Pre-allocated variable: bgColor (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
+    ; Total frame size: 16 bytes
     LDI t0, 16
     SUB sp, sp, t0
-    ; Allocated 16 bytes for 2 local variables
+    ; Allocated 16 bytes for stack frame
     ; Declaration: fgColor
     LDI t0, 15
     LDI t1, -8
@@ -543,19 +574,23 @@ writeChar_end_21:
     ; Deallocated 16 bytes for frame
     POP fp
     POP ra
-    JMP ra                               ; Return from writeChar
+    JMP ra                               ; Return from function
 
     ; =====================
     ; Function: confirmInputProcessed
     ; =====================
 confirmInputProcessed:
+    ; Pre-allocating 2 local variables
+    ; Pre-allocated variable: mmioBase (LONG)
+    ; Pre-allocated variable: queueControlOffset (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
+    ; Total frame size: 16 bytes
     LDI t0, 16
     SUB sp, sp, t0
-    ; Allocated 16 bytes for 2 local variables
+    ; Allocated 16 bytes for stack frame
     ; Declaration: mmioBase
     LDI t0, 537001984
     LDI t1, -8
@@ -584,4 +619,4 @@ confirmInputProcessed_end_22:
     ; Deallocated 16 bytes for frame
     POP fp
     POP ra
-    JMP ra                               ; Return from confirmInputProcessed
+    JMP ra                               ; Return from function

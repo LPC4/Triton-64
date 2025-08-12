@@ -1,13 +1,15 @@
 package org.lpc.compiler.ast.statements;
 
+import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 import org.lpc.compiler.ast.parent.Statement;
 
 @ToString
+@Getter
 public class ExpressionStatement extends Statement {
-    public final Expression expression;
+    private final Expression expression;
 
     public ExpressionStatement(Expression expression) {
         this.expression = expression;

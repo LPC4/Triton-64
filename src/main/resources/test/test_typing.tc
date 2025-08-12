@@ -1,0 +1,11 @@
+global g: byte = 67
+
+func main(): byte {
+    var b: byte = 127
+    var i: int = 42
+    var l: long = -1
+
+    var d: int = b + g
+
+    return d
+}

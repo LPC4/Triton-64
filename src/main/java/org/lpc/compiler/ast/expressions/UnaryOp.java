@@ -1,14 +1,17 @@
 package org.lpc.compiler.ast.expressions;
 
+import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 
+@Getter
 @ToString
 public class UnaryOp extends Expression {
+
     public enum Op { NEG, NOT }
-    public final Op op;
-    public final Expression operand;
+    private final Op op;
+    private final Expression operand;
 
     public UnaryOp(String op, Expression operand) {
         this(convertStringToOp(op), operand);

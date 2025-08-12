@@ -1,12 +1,14 @@
 package org.lpc.compiler.ast.expressions;
 
+import lombok.Getter;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 
 import java.util.List;
 
+@Getter
 public class ArrayLiteral extends Expression {
-    public final List<Expression> elements;
+    private final List<Expression> elements;
 
     public ArrayLiteral(List<Expression> elements) {
         this.elements = elements;
@@ -19,6 +21,7 @@ public class ArrayLiteral extends Expression {
 
     @Override
     public String toString() {
-        return "[" + String.join(", ", elements.stream().map(Object::toString).toList()) + "]";
+        return "[" + String.join(", ", getElements().stream().map(Object::toString).toList()) + "]";
     }
+
 }

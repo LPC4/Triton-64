@@ -1,11 +1,13 @@
 package org.lpc.compiler.ast.expressions;
 
+import lombok.Getter;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 
+@Getter
 public class ArrayIndex extends Expression {
-    public final Expression array;
-    public final Expression index;
+    private final Expression array;
+    private final Expression index;
 
     public ArrayIndex(Expression array, Expression index) {
         this.array = array;
@@ -19,6 +21,7 @@ public class ArrayIndex extends Expression {
 
     @Override
     public String toString() {
-        return array + "[" + index + "]";
+        return getArray() + "[" + getIndex() + "]";
     }
+
 }

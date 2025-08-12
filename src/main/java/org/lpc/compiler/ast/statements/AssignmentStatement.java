@@ -1,14 +1,16 @@
 package org.lpc.compiler.ast.statements;
 
+import lombok.Getter;
 import lombok.ToString;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.Expression;
 import org.lpc.compiler.ast.parent.Statement;
 
 @ToString
+@Getter
 public class AssignmentStatement extends Statement {
-    public final Expression target;
-    public final Expression initialValue;
+    private final Expression target;
+    private final Expression initialValue;
 
     public AssignmentStatement(Expression target, Expression initialValue) {
         this.target = target;

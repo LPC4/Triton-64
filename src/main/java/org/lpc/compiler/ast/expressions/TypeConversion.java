@@ -8,16 +8,17 @@ import org.lpc.compiler.ast.parent.Expression;
 
 @Getter
 @ToString
-public class Variable extends Expression {
-    private final String name;
-    private final VariableType type;
-    public Variable(String name, VariableType type) {
-        this.name = name;
-        this.type = type;
+public class TypeConversion extends Expression {
+    private final Expression expression;
+    private final VariableType targetType;
+
+    public TypeConversion(Expression expression, VariableType targetType) {
+        this.expression = expression;
+        this.targetType = targetType;
     }
+
     @Override
     public <T> T accept(AstVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
 }

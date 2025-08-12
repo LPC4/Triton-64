@@ -1,6 +1,7 @@
 package org.lpc.compiler.codegen;
 
 import org.lpc.compiler.CodeGenerator;
+import org.lpc.compiler.VariableType;
 import org.lpc.compiler.ast.parent.Expression;
 import org.lpc.compiler.ast.parent.Statement;
 import org.lpc.compiler.ast.statements.Declaration;
@@ -12,18 +13,16 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Manages function generation including prologue, epilogue, and calling conventions.
+ * Manages function generation with proper stack frame allocation based on actual variable sizes.
+ * Uses natural alignment for variables to minimize memory usage.
  */
 public class FunctionManager {
-    private static final int WORD_SIZE = 8;
-    private static final int STACK_ALIGNMENT = 16;
+    private static final int WORD_SIZE = 8; // For register-based arguments
 
     private final CodeGenContext ctx;
     private final InstructionEmitter emitter;
     private final RegisterManager registerManager;
     private final StackManager stackManager;
-
-    private final FunctionAnalyzer analyzer;
 
     public FunctionManager(CodeGenContext ctx, InstructionEmitter emitter,
                            RegisterManager registerManager, StackManager stackManager) {
@@ -31,149 +30,92 @@ public class FunctionManager {
         this.emitter = emitter;
         this.registerManager = registerManager;
         this.stackManager = stackManager;
-        this.analyzer = new FunctionAnalyzer();
     }
 
-    public void generateFunction(String name, List<String> parameters, List<Statement> body,
+    public void generateFunction(String name, List<String> parameters, List<VariableType> parameterTypes, List<Statement> body,
                                  CodeGenerator.StatementBlockGenerator bodyGenerator, String endLabel) {
         emitter.sectionHeader("Function: " + name);
         emitter.label(name);
 
         registerManager.reset();
-        stackManager.startFunctionFrame(parameters);
+        stackManager.startFunctionFrame(parameters, parameterTypes);
 
-        try {
-            FunctionInfo info = analyzer.analyze(body, parameters);
+        // Pre-analyze and allocate all local variables
+        FunctionAnalyzer analyzer = new FunctionAnalyzer();
+        FunctionInfo info = analyzer.analyze(body, parameters);
+        preAllocateLocalVariables(info.declarations());
 
-            generateFunctionPrologue(info.localVariableCount());
-            // Generate all statements in source order, including declarations with initializers
-            bodyGenerator.generate(body);
-            generateFunctionEpilogue(endLabel, name, info.localVariableCount());
+        generateFunctionPrologue();
+        bodyGenerator.generate(body);
+        generateFunctionEpilogue(endLabel);
 
-        } finally {
-            stackManager.endFunctionFrame();
-            validateRegisterState(name);
-        }
+        stackManager.endFunctionFrame();
+        validateRegisterState(name);
     }
 
-    private record FunctionInfo(int localVariableCount, List<Statement> declarations, List<Statement> otherStatements) {}
+    /**
+     * Pre-allocates all local variables found in the function body.
+     * This ensures the stack frame size is calculated correctly before the prologue.
+     */
+    private void preAllocateLocalVariables(List<Statement> declarations) {
+        emitter.comment("Pre-allocating " + declarations.size() + " local variables");
 
-    private class FunctionAnalyzer {
-        public FunctionInfo analyze(List<Statement> body, List<String> parameters) {
-            int localVarCount = countAllLocalVariables(body, parameters);
-
-            List<Statement> declarations = extractDeclarations(body, parameters);
-            List<Statement> otherStatements = extractNonDeclarations(body);
-
-            return new FunctionInfo(localVarCount, declarations, otherStatements);
-        }
-
-        private int countAllLocalVariables(List<Statement> statements, List<String> parameters) {
-            return new VariableCounter(parameters).count(statements);
-        }
-
-        private List<Statement> extractDeclarations(List<Statement> body, List<String> parameters) {
-            Set<String> paramSet = Set.copyOf(parameters);
-            return body.stream()
-                    .filter(Declaration.class::isInstance)
-                    .map(Declaration.class::cast)
-                    .filter(decl -> !paramSet.contains(decl.name))
-                    .map(Statement.class::cast)
-                    .toList();
-        }
-
-        private List<Statement> extractNonDeclarations(List<Statement> body) {
-            return body.stream()
-                    .filter(stmt -> !(stmt instanceof Declaration))
-                    .toList();
-        }
-    }
-
-    private static class VariableCounter {
-        private final Set<String> parameters;
-
-        public VariableCounter(List<String> parameters) {
-            this.parameters = Set.copyOf(parameters);
-        }
-
-        public int count(List<Statement> statements) {
-            return statements.stream()
-                    .mapToInt(this::countInStatement)
-                    .sum();
-        }
-
-        private int countInStatement(Statement stmt) {
-            return switch (stmt) {
-                case Declaration decl when !parameters.contains(decl.name) -> 1;
-                case IfStatement ifStmt -> countInIfStatement(ifStmt);
-                case WhileStatement whileStmt -> count(whileStmt.body);
-                default -> 0;
-            };
-        }
-
-        private int countInIfStatement(IfStatement ifStmt) {
-            int count = count(ifStmt.thenBranch);
-            if (ifStmt.elseBranch != null) {
-                count += count(ifStmt.elseBranch);
+        for (Statement stmt : declarations) {
+            if (stmt instanceof Declaration decl) {
+                VariableType type = decl.getType() != null ? decl.getType() : VariableType.LONG;
+                stackManager.allocateVariable(decl.getName(), type);
+                emitter.comment("Pre-allocated variable: " + decl.getName() + " (" + type + ")");
             }
-            return count;
         }
     }
 
-    private void generateFunctionPrologue(int localVarCount) {
+    private void generateFunctionPrologue() {
         emitter.comment("Function prologue");
         emitter.push("ra");
         emitter.push("fp");
         emitter.move("fp", "sp");
 
-        if (localVarCount > 0) {
-            allocateStackSpace(localVarCount);
+        int frameSize = stackManager.getTotalFrameSize();
+        emitter.comment("Total frame size: " + frameSize + " bytes");
+        if (frameSize > 0) {
+            allocateStackSpace(frameSize);
         }
     }
 
-    private void generateFunctionEpilogue(String endLabel, String functionName, int localVarCount) {
+    private void generateFunctionEpilogue(String endLabel) {
         emitter.comment("Function epilogue");
         emitter.label(endLabel);
 
-        if (localVarCount > 0) {
-            deallocateStackSpace(localVarCount);
+        int frameSize = stackManager.getTotalFrameSize();
+        if (frameSize > 0) {
+            deallocateStackSpace(frameSize);
         }
 
         emitter.pop("fp");
         emitter.pop("ra");
-        emitter.instructionWithComment("Return from " + functionName, "JMP", "ra");
+        emitter.instructionWithComment("Return from function", "JMP", "ra");
     }
 
-    private void allocateStackSpace(int localVarCount) {
-        int frameSize = localVarCount * WORD_SIZE;
-        int alignedSize = alignToStackBoundary(frameSize);
-
+    private void allocateStackSpace(int frameSize) {
         String temp = registerManager.allocateRegister("frame_alloc");
         try {
-            emitter.loadImmediate(temp, alignedSize);
+            emitter.loadImmediate(temp, frameSize);
             emitter.subtract("sp", "sp", temp);
-            emitter.comment("Allocated " + alignedSize + " bytes for " + localVarCount + " local variables");
+            emitter.comment("Allocated " + frameSize + " bytes for stack frame");
         } finally {
             registerManager.freeRegister(temp);
         }
     }
 
-    private void deallocateStackSpace(int localVarCount) {
-        int frameSize = localVarCount * WORD_SIZE;
-        int alignedSize = alignToStackBoundary(frameSize);
-
+    private void deallocateStackSpace(int frameSize) {
         String temp = registerManager.allocateRegister("frame_dealloc");
         try {
-            emitter.loadImmediate(temp, alignedSize);
+            emitter.loadImmediate(temp, frameSize);
             emitter.add("sp", "sp", temp);
-            emitter.comment("Deallocated " + alignedSize + " bytes for frame");
+            emitter.comment("Deallocated " + frameSize + " bytes for frame");
         } finally {
             registerManager.freeRegister(temp);
         }
-    }
-
-    private int alignToStackBoundary(int size) {
-        return (size + STACK_ALIGNMENT - 1) & ~(STACK_ALIGNMENT - 1);
     }
 
     private void validateRegisterState(String functionName) {
@@ -278,5 +220,55 @@ public class FunctionManager {
 
     private int extractRegisterIndex(String register) {
         return Integer.parseInt(register.substring(1));
+    }
+
+    private record FunctionInfo(int localVariableCount, List<Statement> declarations, List<Statement> otherStatements) {}
+
+    private static class FunctionAnalyzer {
+        public FunctionInfo analyze(List<Statement> body, List<String> parameters) {
+            List<Statement> declarations = extractDeclarations(body, parameters);
+            List<Statement> otherStatements = extractNonDeclarations(body);
+            int localVarCount = declarations.size();
+
+            return new FunctionInfo(localVarCount, declarations, otherStatements);
+        }
+
+        private List<Statement> extractDeclarations(List<Statement> body, List<String> parameters) {
+            Set<String> paramSet = Set.copyOf(parameters);
+            List<Statement> allDeclarations = new ArrayList<>();
+
+            // Recursively find all declarations in the function body
+            findDeclarations(body, paramSet, allDeclarations);
+
+            return allDeclarations;
+        }
+
+        private void findDeclarations(List<Statement> statements, Set<String> paramSet, List<Statement> allDeclarations) {
+            for (Statement stmt : statements) {
+                switch (stmt) {
+                    case Declaration decl when !paramSet.contains(decl.getName()) -> {
+                        allDeclarations.add(stmt);
+                    }
+                    case IfStatement ifStmt -> {
+                        findDeclarations(ifStmt.getThenBranch(), paramSet, allDeclarations);
+                        if (ifStmt.getElseBranch() != null) {
+                            findDeclarations(ifStmt.getElseBranch(), paramSet, allDeclarations);
+                        }
+                    }
+                    case WhileStatement whileStmt -> {
+                        findDeclarations(whileStmt.getBody(), paramSet, allDeclarations);
+                    }
+                    default -> {
+                        // Other statement types don't contain declarations
+                    }
+                }
+            }
+        }
+
+        private List<Statement> extractNonDeclarations(List<Statement> body) {
+            return body.stream()
+                    .filter(stmt -> !(stmt instanceof Declaration))
+                    .toList();
+        }
     }
 }
