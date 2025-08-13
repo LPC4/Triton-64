@@ -1,4 +1,4 @@
-package org.lpc.io;
+package org.lpc.memory.io;
 
 public interface IODevice {
     long getBaseAdress();

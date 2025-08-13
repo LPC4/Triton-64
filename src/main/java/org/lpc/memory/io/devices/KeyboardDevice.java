@@ -1,8 +1,8 @@
-package org.lpc.io.devices;
+package org.lpc.memory.io.devices;
 
 import javafx.scene.Scene;
 import javafx.scene.input.KeyEvent;
-import org.lpc.io.IODevice;
+import org.lpc.memory.io.IODevice;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;

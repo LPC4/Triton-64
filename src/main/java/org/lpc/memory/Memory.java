@@ -1,8 +1,8 @@
 package org.lpc.memory;
 
 import lombok.Getter;
-import org.lpc.io.IODevice;
-import org.lpc.io.IODeviceManager;
+import org.lpc.memory.io.IODevice;
+import org.lpc.memory.io.IODeviceManager;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;

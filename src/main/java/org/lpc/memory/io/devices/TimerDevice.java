@@ -1,6 +1,6 @@
-package org.lpc.io.devices;
+package org.lpc.memory.io.devices;
 
-import org.lpc.io.IODevice;
+import org.lpc.memory.io.IODevice;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
