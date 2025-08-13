@@ -1,6 +1,6 @@
 package org.lpc.compiler.generators;
 
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.ast.expressions.Expression;
 import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.Declaration;

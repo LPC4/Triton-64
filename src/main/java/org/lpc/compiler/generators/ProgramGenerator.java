@@ -16,26 +16,20 @@ public class ProgramGenerator {
     private final FunctionGenerator functionGenerator;
     private final GlobalManager globalManager;
     private final ContextManager context;
-    private final ContextManager codeGenContext;
 
     // Reference to the main generator for recursive calls
     private final AstVisitor<String> astVisitor;
 
     public ProgramGenerator(
             InstructionGenerator emitter,
-            RegisterManager registerManager,
-            StackManager stackManager,
-            ConditionalGenerator conditionalGenerator,
             FunctionGenerator functionGenerator,
             GlobalManager globalManager,
             ContextManager context,
-            ContextManager codeGenContext,
             CodeGenerator astVisitor) {
         this.emitter = emitter;
         this.functionGenerator = functionGenerator;
         this.globalManager = globalManager;
         this.context = context;
-        this.codeGenContext = codeGenContext;
         this.astVisitor = astVisitor;
     }
 
@@ -62,7 +56,7 @@ public class ProgramGenerator {
 
         try {
             String currentFunctionEndLabel = context.generateLabel(functionName + "_end");
-            codeGenContext.setCurrentFunctionEndLabel(currentFunctionEndLabel);
+            context.setCurrentFunctionEndLabel(currentFunctionEndLabel);
 
             functionGenerator.generateFunction(
                     functionName,
@@ -75,7 +69,7 @@ public class ProgramGenerator {
 
             return null;
         } finally {
-            codeGenContext.setCurrentFunctionEndLabel(null);
+            context.setCurrentFunctionEndLabel(null);
         }
     }
 

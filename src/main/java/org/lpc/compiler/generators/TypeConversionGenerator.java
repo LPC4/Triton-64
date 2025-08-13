@@ -1,6 +1,6 @@
 package org.lpc.compiler.generators;
 
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.context_managers.RegisterManager;
 
 /**
@@ -11,18 +11,17 @@ import org.lpc.compiler.context_managers.RegisterManager;
  * - BYTE to LONG: 56-bit shifts (was incorrectly using 57)
  * - Fixed signExtendByteToLong to use consistent 56-bit shifts
  */
-public class TypeConverter {
+public class TypeConversionGenerator {
     private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
 
-    public TypeConverter(InstructionGenerator emitter, RegisterManager registerManager) {
+    public TypeConversionGenerator(InstructionGenerator emitter, RegisterManager registerManager) {
         this.emitter = emitter;
         this.registerManager = registerManager;
     }
 
     public void convert(VariableType sourceType, VariableType targetType,
                         String sourceReg, String resultReg) {
-
         if (sourceType == VariableType.BYTE) {
             convertFromByte(targetType, sourceReg, resultReg);
         } else if (sourceType == VariableType.INT) {

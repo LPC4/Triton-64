@@ -22,7 +22,7 @@ main:
     ; Pre-allocated variable: b (BYTE)
     ; Pre-allocated variable: i (INT)
     ; Pre-allocated variable: l (LONG)
-    ; Pre-allocated variable: d (INT)
+    ; Pre-allocated variable: r (INT)
     ; Function prologue
     PUSH ra
     PUSH fp
@@ -48,7 +48,7 @@ main:
     LDI t0, -13
     ADD t0, fp, t0
     ST t0, t1
-    ; Declaration: d
+    ; Declaration: r
     ; Binary operation: ADD
     LDI t0, -1
     ADD t0, fp, t0
@@ -60,32 +60,30 @@ main:
     LDI t1, -17
     ADD t1, fp, t1
     SI t1, t0
-    ; Function call: test
-    ; Preparing function call: test
+    ; Function call: add1
+    ; Preparing function call: add1
     ; Evaluating argument 0
     LDI t0, -17
     ADD t0, fp, t0
     LI t1, t0
     PUSH t1
-    JAL test, ra
+    JAL add1, ra
     LDI t0, 8
     ADD sp, sp, t0
     ; Cleaned up 1 arguments from stack
     MOV t0, a0
-    ; Assignment to local variable: d
+    ; Assignment to local variable: r
     LDI t1, -17
     ADD t1, fp, t1
     SI t1, t0
     ; return statement
-    ; Type conversion to BYTE
+    ; Type conversion to LONG
     LDI t0, -17
     ADD t0, fp, t0
     LI t1, t0
-    ; Converting INT to BYTE (truncate 32→8 and sign-extend to 64)
-    LDI t2, 255
-    AND t0, t1, t2
-    SHL t0, t0, 56
-    SAR t0, t0, 56
+    ; Converting INT to LONG (sign extend 32→64)
+    SHL t0, t1, 32
+    SAR t0, t0, 32
     MOV a0, t0
     JMP main_end_0
     ; Function epilogue
@@ -98,11 +96,11 @@ main_end_0:
     JMP ra                               ; Return from function
 
     ; ======================================
-    ; Function: test
+    ; Function: add1
     ; ======================================
-test:
+add1:
     ; Pre-allocating 1 local variables
-    ; Pre-allocated variable: c (INT)
+    ; Pre-allocated variable: r (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
@@ -111,24 +109,30 @@ test:
     LDI t0, 8
     SUB sp, sp, t0
     ; Allocated 8 bytes for stack frame
-    ; Declaration: c
+    ; Declaration: r
     ; Binary operation: ADD
     LDI t0, 16
     ADD t0, fp, t0
     LI t1, t0
     LDI t0, 1
     ADD t2, t1, t0
-    LDI t0, -4
+    LDI t0, -8
     ADD t0, fp, t0
-    SI t0, t2
+    ST t0, t2
     ; return statement
-    LDI t0, -4
+    ; Type conversion to INT
+    LDI t0, -8
     ADD t0, fp, t0
-    LI t1, t0
-    MOV a0, t1
-    JMP test_end_1
+    LD t1, t0
+    ; Converting LONG to INT (truncate 64→32 and sign-extend to 64)
+    LDI t2, 4294967295
+    AND t0, t1, t2
+    SHL t0, t0, 32
+    SAR t0, t0, 32
+    MOV a0, t0
+    JMP add1_end_1
     ; Function epilogue
-test_end_1:
+add1_end_1:
     LDI t0, 8
     ADD sp, sp, t0
     ; Deallocated 8 bytes for frame

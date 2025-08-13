@@ -1,7 +1,7 @@
 package org.lpc.compiler.context_managers;
 
 import lombok.Getter;
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.generators.InstructionGenerator;
 
 import java.util.*;

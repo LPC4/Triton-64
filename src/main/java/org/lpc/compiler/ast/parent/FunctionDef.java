@@ -2,7 +2,7 @@ package org.lpc.compiler.ast.parent;
 
 import lombok.Getter;
 import lombok.ToString;
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.ast.AstNode;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.Statement;

@@ -1,7 +1,7 @@
 package org.lpc.compiler.generators;
 
 import org.lpc.compiler.CodeGenerator;
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.ast.statements.*;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.context_managers.*;
@@ -19,7 +19,6 @@ public class StatementGenerator {
     private final ConditionalGenerator conditionalGenerator;
     private final GlobalManager globalManager;
     private final ContextManager context;
-    private final ContextManager codeGenContext;
 
     // Reference to the main generator for recursive calls
     private final CodeGenerator astVisitor;
@@ -31,7 +30,6 @@ public class StatementGenerator {
             ConditionalGenerator conditionalGenerator,
             GlobalManager globalManager,
             ContextManager context,
-            ContextManager codeGenContext,
             CodeGenerator astVisitor) {
         this.emitter = emitter;
         this.registerManager = registerManager;
@@ -39,7 +37,6 @@ public class StatementGenerator {
         this.conditionalGenerator = conditionalGenerator;
         this.globalManager = globalManager;
         this.context = context;
-        this.codeGenContext = codeGenContext;
         this.astVisitor = astVisitor;
     }
 
@@ -52,7 +49,7 @@ public class StatementGenerator {
             registerManager.freeRegister(valueReg);
         });
 
-        String currentFunctionEndLabel = codeGenContext.getCurrentFunctionEndLabel();
+        String currentFunctionEndLabel = context.getCurrentFunctionEndLabel();
         if (currentFunctionEndLabel == null) {
             throw new IllegalStateException("Return statement outside of function");
         }

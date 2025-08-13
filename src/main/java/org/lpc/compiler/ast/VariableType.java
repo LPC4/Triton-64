@@ -1,4 +1,4 @@
-package org.lpc.compiler;
+package org.lpc.compiler.ast;
 
 import lombok.Getter;
 

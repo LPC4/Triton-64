@@ -1,7 +1,7 @@
 package org.lpc.compiler.generators;
 
 import org.lpc.compiler.CodeGenerator;
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.context_managers.*;
 
@@ -152,7 +152,7 @@ public class ExpressionGenerator {
 
     private void performTypeConversion(VariableType sourceType, VariableType targetType,
                                        String sourceReg, String resultReg) {
-        TypeConverter converter = new TypeConverter(emitter, registerManager);
+        TypeConversionGenerator converter = new TypeConversionGenerator(emitter, registerManager);
         converter.convert(sourceType, targetType, sourceReg, resultReg);
     }
 

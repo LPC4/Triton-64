@@ -1,5 +1,6 @@
 package org.lpc.compiler;
 
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.ast.expressions.Expression;
 import org.lpc.compiler.ast.parent.FunctionDef;

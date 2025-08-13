@@ -35,9 +35,6 @@ public final class CodeGenerator implements AstVisitor<String> {
     private final StatementGenerator statementGenerator;
     private final ExpressionGenerator expressionGenerator;
 
-    // Shared context
-    private final ContextManager codeGenContext;
-
     public CodeGenerator(final Parser parser) {
         Objects.requireNonNull(parser, "Parser cannot be null");
 
@@ -52,16 +49,14 @@ public final class CodeGenerator implements AstVisitor<String> {
         this.functionGenerator = new FunctionGenerator(context, emitter, registerManager, stackManager);
         this.globalManager = new GlobalManager(emitter, registerManager);
 
-        // Initialize shared context
-        this.codeGenContext = new ContextManager();
 
         // Initialize generators
         this.programGenerator = new ProgramGenerator(
-                emitter, registerManager, stackManager, conditionalGenerator,
-                functionGenerator, globalManager, context, codeGenContext, this);
+                emitter, functionGenerator, globalManager, context,
+                this);
         this.statementGenerator = new StatementGenerator(
                 emitter, registerManager, stackManager, conditionalGenerator,
-                globalManager, context, codeGenContext, this);
+                globalManager, context,  this);
         this.expressionGenerator = new ExpressionGenerator(
                 emitter, registerManager, stackManager, conditionalGenerator,
                 functionGenerator, globalManager, this);

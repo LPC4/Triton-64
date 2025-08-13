@@ -1,6 +1,6 @@
 package org.lpc.compiler.context_managers;
 
-import org.lpc.compiler.VariableType;
+import org.lpc.compiler.ast.VariableType;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.GlobalDeclaration;
 import org.lpc.compiler.generators.InstructionGenerator;

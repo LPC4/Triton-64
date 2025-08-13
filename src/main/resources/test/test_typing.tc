@@ -1,18 +1,18 @@
 global g: byte = 67
 
-func main(): byte {
+func main(): long {
     var b: byte = 1
     var i: int = 42
     var l: long = -1
 
-    var d: int = b + g
+    var r: int = b + g
 
-    d = test(d)
+    r = add1(r)
 
-    return d
+    return r
 }
 
-func test(arg: int): int {
-    var c: int = arg + 1
-    return c
+func add1(a: int): int {
+    var r: long = a + 1
+    return r
 }

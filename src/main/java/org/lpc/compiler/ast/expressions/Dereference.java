@@ -17,5 +17,4 @@ public class Dereference implements Expression {
     public <T> T accept(AstVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
 }

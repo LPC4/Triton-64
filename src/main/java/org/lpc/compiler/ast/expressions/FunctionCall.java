@@ -21,5 +21,4 @@ public class FunctionCall implements Expression {
     public <T> T accept(AstVisitor<T> visitor) {
         return visitor.visit(this);
     }
-
 }
