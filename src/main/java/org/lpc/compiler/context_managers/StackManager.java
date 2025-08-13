@@ -1,7 +1,9 @@
 package org.lpc.compiler.context_managers;
 
 import lombok.Getter;
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.PointerType;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.generators.InstructionGenerator;
 
 import java.util.*;
@@ -11,11 +13,6 @@ import java.util.*;
  * This implementation minimizes memory usage while maintaining ABI compliance.
  */
 public class StackManager {
-    // Type sizes
-    private static final int BYTE_SIZE = 1;
-    private static final int INT_SIZE = 4;
-    private static final int LONG_SIZE = 8;
-
     private static final int FRAME_ALIGNMENT = 8; // 8-byte alignment for stack frames
 
     private final InstructionGenerator emitter;
@@ -30,7 +27,7 @@ public class StackManager {
     }
 
     // Frame management
-    public void startFunctionFrame(List<String> parameters, List<VariableType> parameterTypes) {
+    public void startFunctionFrame(List<String> parameters, List<Type> parameterTypes) {
         validateNoActiveFrame();
         currentFrame = new FunctionFrame(parameters, parameterTypes);
     }
@@ -40,9 +37,9 @@ public class StackManager {
         currentFrame = null;
     }
 
-    public int allocateVariable(String name, VariableType type) {
+    public int allocateVariable(String name, Type type) {
         validateActiveFrame();
-        int size = getSizeForType(type);
+        int size = type.getSize();
         return currentFrame.allocateLocal(name, size, type);
     }
 
@@ -52,27 +49,17 @@ public class StackManager {
     }
 
     // Stack operations
-    public void storeToStack(int offset, String valueReg, VariableType type) {
+    public void storeToStack(int offset, String valueReg, Type type) {
         stackOps.storeAtOffset(offset, valueReg, type);
     }
 
-    public String loadFromStack(int offset, VariableType type) {
+    public String loadFromStack(int offset, Type type) {
         return stackOps.loadFromOffset(offset, type);
     }
 
     public int getTotalFrameSize() {
         validateActiveFrame();
         return currentFrame.getTotalFrameSize();
-    }
-
-    // Helper method to get size for a type
-    private int getSizeForType(VariableType type) {
-        return switch (type) {
-            case BYTE -> BYTE_SIZE;
-            case INT -> INT_SIZE;
-            case LONG -> LONG_SIZE;
-            default -> throw new IllegalArgumentException("Unsupported variable type: " + type);
-        };
     }
 
     // Helper method to align offset to boundary
@@ -93,35 +80,47 @@ public class StackManager {
         }
     }
 
+    public Type getVariableType(String name) {
+        validateActiveFrame();
+        if (!currentFrame.getVariables().exists(name)) {
+            throw new IllegalArgumentException("Variable not found: " + name);
+        }
+        return currentFrame.getVariables().getStringVariableInfoHashMap().get(name).type;
+    }
+
     /**
      * Encapsulates stack memory operations with type awareness
      */
     private class StackOperations {
-        public void storeAtOffset(int offset, String valueReg, VariableType type) {
+        public void storeAtOffset(int offset, String valueReg, Type type) {
             String addrReg = calculateAddress(offset);
             try {
-                switch (type) {
-                    case BYTE -> emitter.storeByte(addrReg, valueReg);
-                    case INT -> emitter.storeInt(addrReg, valueReg);
-                    case LONG -> emitter.store(addrReg, valueReg);
-                    default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+                if (type.isPrimitive()) {
+                    storePrimitive(addrReg, valueReg, type.asPrimitive());
+                } else if (type.isPtr()) {
+                    emitter.store(addrReg, valueReg); // Store pointer address (long)
+                } else {
+                    throw new IllegalArgumentException("Unknown variable type: " + type);
                 }
             } finally {
                 registerManager.freeRegister(addrReg);
             }
         }
 
-        public String loadFromOffset(int offset, VariableType type) {
+        public String loadFromOffset(int offset, Type type) {
             String addrReg = calculateAddress(offset);
             String valueReg = registerManager.allocateRegister("stack_load_value");
+
             try {
-                switch (type) {
-                    case BYTE -> emitter.loadByte(valueReg, addrReg);
-                    case INT -> emitter.loadInt(valueReg, addrReg);
-                    case LONG -> emitter.load(valueReg, addrReg);
-                    default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+                if (type.isPrimitive()) {
+                    loadPrimitive(valueReg, addrReg, type.asPrimitive());
+                    return valueReg;
+                } else if (type.isPtr()) {
+                    emitter.load(valueReg, addrReg); // Load pointer address (long)
+                    return valueReg;
+                } else {
+                    throw new IllegalArgumentException("Unknown variable type: " + type);
                 }
-                return valueReg;
             } finally {
                 registerManager.freeRegister(addrReg);
             }
@@ -133,29 +132,46 @@ public class StackManager {
             emitter.add(addrReg, "fp", addrReg);
             return addrReg;
         }
+
+        private void loadPrimitive(String valueReg, String addrReg, PrimitiveType type) {
+            switch (type) {
+                case PrimitiveType.BYTE -> emitter.loadByte(valueReg, addrReg);
+                case PrimitiveType.INT -> emitter.loadInt(valueReg, addrReg);
+                case PrimitiveType.LONG -> emitter.load(valueReg, addrReg);
+            }
+        }
+
+        private void storePrimitive(String addrReg, String valueReg, PrimitiveType type) {
+            switch (type) {
+                case PrimitiveType.BYTE -> emitter.storeByte(addrReg, valueReg);
+                case PrimitiveType.INT -> emitter.storeInt(addrReg, valueReg);
+                case PrimitiveType.LONG -> emitter.store(addrReg, valueReg);
+            }
+        }
     }
 
     /**
      * Represents a function's stack frame with parameter and local variable management
      */
+    @Getter
     private static class FunctionFrame {
         private final VariableMap variables;
         private final OffsetCalculator offsetCalculator;
 
-        public FunctionFrame(List<String> parameters, List<VariableType> parameterTypes) {
+        public FunctionFrame(List<String> parameters, List<Type> parameterTypes) {
             this.variables = new VariableMap();
             this.offsetCalculator = new OffsetCalculator();
 
             initializeParameters(parameters, parameterTypes);
         }
 
-        private void initializeParameters(List<String> parameters, List<VariableType> parameterTypes) {
+        private void initializeParameters(List<String> parameters, List<Type> parameterTypes) {
             int paramOffset = 16; // Start after saved ra/fp (8 bytes each)
 
             for (int i = 0; i < parameters.size(); i++) {
                 String paramName = parameters.get(i);
-                VariableType type = parameterTypes.get(i);
-                int size = getSizeForType(type);
+                Type type = parameterTypes.get(i);
+                int size = type.getSize();
 
                 // Align to the type's natural alignment
                 int alignment = Math.max(1, size);
@@ -166,15 +182,7 @@ public class StackManager {
             }
         }
 
-        private int getSizeForType(VariableType type) {
-            return switch (type) {
-                case BYTE -> BYTE_SIZE;
-                case INT -> INT_SIZE;
-                case LONG -> LONG_SIZE;
-            };
-        }
-
-        public int allocateLocal(String name, int size, VariableType type) {
+        public int allocateLocal(String name, int size, Type type) {
             if (variables.exists(name)) {
                 return variables.getOffset(name);
             }
@@ -203,24 +211,25 @@ public class StackManager {
     /**
      * Manages variable name to offset mappings with size and type information
      */
+    @Getter
     private static class VariableMap {
-        private final Map<String, VariableInfo> variables = new HashMap<>();
+        private final Map<String, VariableInfo> stringVariableInfoHashMap = new HashMap<>();
         private final Set<String> parameters = new HashSet<>();
         @Getter
         private int localCount = 0;
 
-        public void addParameter(String name, int offset, int size, VariableType type) {
-            variables.put(name, new VariableInfo(offset, size, type));
+        public void addParameter(String name, int offset, int size, Type type) {
+            stringVariableInfoHashMap.put(name, new VariableInfo(offset, size, type));
             parameters.add(name);
         }
 
-        public void addLocal(String name, int offset, int size, VariableType type) {
-            variables.put(name, new VariableInfo(offset, size, type));
+        public void addLocal(String name, int offset, int size, Type type) {
+            stringVariableInfoHashMap.put(name, new VariableInfo(offset, size, type));
             localCount++;
         }
 
         public boolean exists(String name) {
-            return variables.containsKey(name);
+            return stringVariableInfoHashMap.containsKey(name);
         }
 
         public boolean isParameter(String name) {
@@ -228,14 +237,14 @@ public class StackManager {
         }
 
         public int getOffset(String name) {
-            VariableInfo info = variables.get(name);
+            VariableInfo info = stringVariableInfoHashMap.get(name);
             if (info == null) {
                 throw new IllegalArgumentException("Variable not found: " + name);
             }
             return info.offset;
         }
 
-        private record VariableInfo(int offset, int size, VariableType type) {
+        private record VariableInfo(int offset, int size, Type type) {
         }
     }
 

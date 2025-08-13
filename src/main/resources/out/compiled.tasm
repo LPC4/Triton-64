@@ -4,25 +4,399 @@ _start:
     ; ====================================
     ; Global variables
     ; ====================================
-    ADD hp, gp, 8
-    ; Allocated 8 bytes for global variables
-    ; Total global data size: 8 bytes
-    LDI t0, 67
+    ADD hp, gp, 48
+    ; Allocated 48 bytes for global variables
+    ; Total global data size: 48 bytes
+    LDI t0, 402784256
     LDI t1, 0
     ADD t1, gp, t1
-    SB t1, t0
+    ST t1, t0
+    LDI t0, 134217728
+    LDI t1, 8
+    ADD t1, gp, t1
+    ST t1, t0
+    LDI t0, 8
+    LDI t1, 16
+    ADD t1, gp, t1
+    ST t1, t0
+    LDI t0, 16
+    LDI t1, 24
+    ADD t1, gp, t1
+    ST t1, t0
+    LDI t0, 8
+    LDI t1, 32
+    ADD t1, gp, t1
+    ST t1, t0
+    LDI t0, 0
+    LDI t1, 40
+    ADD t1, gp, t1
+    ST t1, t0
     JAL main, ra
     HLT
 
-    ; ======================================
-    ; Function: main
-    ; ======================================
-main:
-    ; Pre-allocating 4 local variables
-    ; Pre-allocated variable: b (BYTE)
-    ; Pre-allocated variable: i (INT)
-    ; Pre-allocated variable: l (LONG)
-    ; Pre-allocated variable: r (INT)
+    ; ===================================
+    ; Function: write64
+    ; ===================================
+write64:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    ; Store LONG to address t1
+    ST t1, t2
+    ; Function epilogue
+write64_end_0:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ====================================
+    ; Function: read64
+    ; ====================================
+read64:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    ; return statement
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LD t0, t1
+    MOV a0, t0
+    JMP read64_end_1
+    ; Function epilogue
+read64_end_1:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ==================================
+    ; Function: align_up
+    ; ==================================
+align_up:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    ; return statement
+    ; Binary operation: AND
+    ; Binary operation: SUB
+    ; Binary operation: ADD
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    ADD t0, t1, t2
+    LDI t1, 1
+    SUB t2, t0, t1
+    ; Unary operation: NOT
+    ; Binary operation: SUB
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    SUB t3, t1, t0
+    NOT t0, t3
+    AND t1, t2, t0
+    MOV a0, t1
+    JMP align_up_end_2
+    ; Function epilogue
+align_up_end_2:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ============================
+    ; Function: get_block_size
+    ; ============================
+get_block_size:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    ; return statement
+    ; Binary operation: SHR
+    ; Function call: read64
+    ; Preparing function call: read64
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL read64, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, 32
+    SHR t2, t0, t1
+    MOV a0, t2
+    JMP get_block_size_end_3
+    ; Function epilogue
+get_block_size_end_3:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ============================
+    ; Function: get_next_block
+    ; ============================
+get_next_block:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    ; return statement
+    ; Binary operation: AND
+    ; Function call: read64
+    ; Preparing function call: read64
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL read64, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    ; Binary operation: SUB
+    ; Binary operation: SHL
+    LDI t1, 1
+    LDI t2, 32
+    SHL t3, t1, t2
+    LDI t1, 1
+    SUB t2, t3, t1
+    AND t1, t0, t2
+    MOV a0, t1
+    JMP get_next_block_end_4
+    ; Function epilogue
+get_next_block_end_4:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ================================
+    ; Function: set_header
+    ; ================================
+set_header:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    ; Expression statement
+    ; Function call: write64
+    ; Preparing function call: write64
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    ; Binary operation: OR
+    ; Binary operation: SHL
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    LDI t0, 32
+    SHL t3, t2, t0
+    LDI t0, 32
+    ADD t0, fp, t0
+    LD t2, t0
+    OR t0, t3, t2
+    PUSH t0
+    PUSH t1
+    JAL write64, ra
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Cleaned up 2 arguments from stack
+    MOV t0, a0
+    ; Function epilogue
+set_header_end_5:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; =================================
+    ; Function: init_heap
+    ; =================================
+init_heap:
+    ; Pre-allocating 0 local variables
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 0 bytes
+    ; If statement
+    ; Comparison: Variable(name=freeListHead, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_7, t2
+    LDI t0, 0
+    ADD t0, gp, t0
+    LD t1, t0
+    ; Assignment to global variable: freeListHead
+    LDI t0, 40
+    ADD t0, gp, t0
+    ST t0, t1
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, 8
+    ADD t0, gp, t0
+    LD t2, t0
+    ; Evaluating argument 2
+    LDI t0, 0
+    PUSH t0
+    PUSH t2
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+else_7:
+    ; Function epilogue
+init_heap_end_6:
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ==============================
+    ; Function: unlink_block
+    ; ==============================
+unlink_block:
+    ; Pre-allocating 2 local variables
+    ; Pre-allocated variable: next (LONG)
+    ; Pre-allocated variable: prev_size (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 16 bytes
+    LDI t0, 16
+    SUB sp, sp, t0
+    ; Allocated 16 bytes for stack frame
+    ; Declaration: next
+    ; Function call: get_next_block
+    ; Preparing function call: get_next_block
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_next_block, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=prev, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_10, t2
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to global variable: freeListHead
+    LDI t0, 40
+    ADD t0, gp, t0
+    ST t0, t1
+    JMP endif_11
+else_10:
+    ; Declaration: prev_size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    ; Evaluating argument 2
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t3, t0
+    PUSH t3
+    PUSH t2
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+endif_11:
+    ; Function epilogue
+unlink_block_end_9:
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Deallocated 16 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ===============================
+    ; Function: split_block
+    ; ===============================
+split_block:
+    ; Pre-allocating 3 local variables
+    ; Pre-allocated variable: total_size (LONG)
+    ; Pre-allocated variable: remaining (LONG)
+    ; Pre-allocated variable: new_block (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
@@ -31,63 +405,134 @@ main:
     LDI t0, 24
     SUB sp, sp, t0
     ; Allocated 24 bytes for stack frame
-    ; Declaration: b
-    LDI t0, 1
-    LDI t1, -1
-    ADD t1, fp, t1
-    SB t1, t0
-    ; Declaration: i
-    LDI t0, 42
-    LDI t1, -5
-    ADD t1, fp, t1
-    SI t1, t0
-    ; Declaration: l
-    ; Unary operation: NEG
-    LDI t0, 1
-    NEG t1, t0
-    LDI t0, -13
-    ADD t0, fp, t0
-    ST t0, t1
-    ; Declaration: r
-    ; Binary operation: ADD
-    LDI t0, -1
-    ADD t0, fp, t0
-    LB t1, t0
-    LDI t0, 0
-    ADD t0, gp, t0
-    LB t2, t0
-    ADD t0, t1, t2
-    LDI t1, -17
-    ADD t1, fp, t1
-    SI t1, t0
-    ; Function call: add1
-    ; Preparing function call: add1
+    ; Declaration: total_size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
     ; Evaluating argument 0
-    LDI t0, -17
+    LDI t0, 16
     ADD t0, fp, t0
-    LI t1, t0
+    LD t1, t0
     PUSH t1
-    JAL add1, ra
+    JAL get_block_size, ra
     LDI t0, 8
     ADD sp, sp, t0
     ; Cleaned up 1 arguments from stack
     MOV t0, a0
-    ; Assignment to local variable: r
-    LDI t1, -17
+    LDI t1, -8
     ADD t1, fp, t1
-    SI t1, t0
-    ; return statement
-    ; Type conversion to LONG
-    LDI t0, -17
+    ST t1, t0
+    ; Declaration: remaining
+    ; Binary operation: SUB
+    LDI t0, -8
     ADD t0, fp, t0
-    LI t1, t0
-    ; Converting INT to LONG (sign extend 32→64)
-    SHL t0, t1, 32
-    SAR t0, t0, 32
-    MOV a0, t0
-    JMP main_end_0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=remaining, type=LONG) GE Variable(name=MIN_BLOCK_SIZE, type=LONG)
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 < t2
+    JPN else_13, t0
+    ; Declaration: new_block
+    ; Binary operation: ADD
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    ADD t0, t1, t2
+    LDI t1, -24
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    ; Evaluating argument 2
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t3, t0
+    PUSH t3
+    PUSH t2
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to global variable: freeListHead
+    LDI t0, 40
+    ADD t0, gp, t0
+    ST t0, t1
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    ; Evaluating argument 2
+    LDI t0, 0
+    PUSH t0
+    PUSH t2
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+    JMP endif_14
+else_13:
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t2, t0
+    ; Evaluating argument 2
+    LDI t0, 0
+    PUSH t0
+    PUSH t2
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+endif_14:
     ; Function epilogue
-main_end_0:
+split_block_end_12:
     LDI t0, 24
     ADD sp, sp, t0
     ; Deallocated 24 bytes for frame
@@ -95,12 +540,1109 @@ main_end_0:
     POP ra
     JMP ra                               ; Return from function
 
+    ; ====================================
+    ; Function: malloc
+    ; ====================================
+malloc:
+    ; Pre-allocating 6 local variables
+    ; Pre-allocated variable: aligned_size (LONG)
+    ; Pre-allocated variable: total_needed (LONG)
+    ; Pre-allocated variable: current (LONG)
+    ; Pre-allocated variable: prev (LONG)
+    ; Pre-allocated variable: block_size (LONG)
+    ; Pre-allocated variable: next_block (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 48 bytes
+    LDI t0, 48
+    SUB sp, sp, t0
+    ; Allocated 48 bytes for stack frame
+    ; If statement
+    ; Comparison: Variable(name=size_req, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_16, t2
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP malloc_end_15
+else_16:
+    ; Expression statement
+    ; Function call: init_heap
+    ; Preparing function call: init_heap
+    JAL init_heap, ra
+    MOV t0, a0
+    ; Declaration: aligned_size
+    ; Function call: align_up
+    ; Preparing function call: align_up
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, 32
+    ADD t0, gp, t0
+    LD t2, t0
+    PUSH t2
+    PUSH t1
+    JAL align_up, ra
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Cleaned up 2 arguments from stack
+    MOV t0, a0
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: total_needed
+    ; Binary operation: ADD
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 16
+    ADD t0, gp, t0
+    LD t2, t0
+    ADD t0, t1, t2
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: current
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t1, t0
+    LDI t0, -24
+    ADD t0, fp, t0
+    ST t0, t1
+    ; Declaration: prev
+    LDI t0, 0
+    LDI t1, -32
+    ADD t1, fp, t1
+    ST t1, t0
+    ; While loop
+loop_18:
+    ; Comparison: Variable(name=current, type=LONG) NE Literal(value=0, type=LONG)
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 == t0
+    JZ endloop_19, t2
+    ; Declaration: block_size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -40
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: next_block
+    ; Function call: get_next_block
+    ; Preparing function call: get_next_block
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_next_block, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -48
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=block_size, type=LONG) GE Variable(name=total_needed, type=LONG)
+    LDI t0, -40
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 < t2
+    JPN else_20, t0
+    ; Expression statement
+    ; Function call: unlink_block
+    ; Preparing function call: unlink_block
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, -32
+    ADD t0, fp, t0
+    LD t2, t0
+    PUSH t2
+    PUSH t1
+    JAL unlink_block, ra
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Cleaned up 2 arguments from stack
+    MOV t0, a0
+    ; Expression statement
+    ; Function call: split_block
+    ; Preparing function call: split_block
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    PUSH t2
+    PUSH t1
+    JAL split_block, ra
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Cleaned up 2 arguments from stack
+    MOV t0, a0
+    ; return statement
+    ; Binary operation: ADD
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 16
+    ADD t0, gp, t0
+    LD t2, t0
+    ADD t0, t1, t2
+    MOV a0, t0
+    JMP malloc_end_15
+else_20:
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to local variable: prev
+    LDI t0, -32
+    ADD t0, fp, t0
+    ST t0, t1
+    LDI t0, -48
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to local variable: current
+    LDI t0, -24
+    ADD t0, fp, t0
+    ST t0, t1
+    JMP loop_18
+endloop_19:
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP malloc_end_15
+    ; Function epilogue
+malloc_end_15:
+    LDI t0, 48
+    ADD sp, sp, t0
+    ; Deallocated 48 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ==============================
+    ; Function: is_valid_ptr
+    ; ==============================
+is_valid_ptr:
+    ; Pre-allocating 3 local variables
+    ; Pre-allocated variable: header_addr (LONG)
+    ; Pre-allocated variable: size (LONG)
+    ; Pre-allocated variable: next (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 24 bytes
+    LDI t0, 24
+    SUB sp, sp, t0
+    ; Allocated 24 bytes for stack frame
+    ; If statement
+    ; Comparison: Variable(name=ptr, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_23, t2
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP is_valid_ptr_end_22
+else_23:
+    ; Declaration: header_addr
+    ; Binary operation: SUB
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 16
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Logical OR: BinaryOp(op=LT, left=Variable(name=header_addr, type=LONG), right=Variable(name=HEAP_START, type=LONG)) || BinaryOp(op=GE, left=Variable(name=header_addr, type=LONG), right=BinaryOp(op=ADD, left=Variable(name=HEAP_START, type=LONG), right=Variable(name=HEAP_SIZE, type=LONG)))
+    ; Comparison: Variable(name=header_addr, type=LONG) LT Variable(name=HEAP_START, type=LONG)
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 >= t2
+    JPN skip_ge_28, t0
+    JMP or_eval_right_27
+skip_ge_28:
+    JMP or_skip_29
+or_eval_right_27:
+    ; Comparison: Variable(name=header_addr, type=LONG) GE BinaryOp(op=ADD, left=Variable(name=HEAP_START, type=LONG), right=Variable(name=HEAP_SIZE, type=LONG))
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Binary operation: ADD
+    LDI t0, 0
+    ADD t0, gp, t0
+    LD t2, t0
+    LDI t0, 8
+    ADD t0, gp, t0
+    LD t3, t0
+    ADD t0, t2, t3
+    SUB t2, t1, t0
+    ; Jump if t1 < t0
+    JPN else_25, t2
+or_skip_29:
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP is_valid_ptr_end_22
+else_25:
+    ; Declaration: size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Logical OR: BinaryOp(op=LT, left=Variable(name=size, type=LONG), right=Variable(name=MIN_BLOCK_SIZE, type=LONG)) || BinaryOp(op=GT, left=Variable(name=size, type=LONG), right=Variable(name=HEAP_SIZE, type=LONG))
+    ; Comparison: Variable(name=size, type=LONG) LT Variable(name=MIN_BLOCK_SIZE, type=LONG)
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 >= t2
+    JPN skip_ge_33, t0
+    JMP or_eval_right_32
+skip_ge_33:
+    JMP or_skip_34
+or_eval_right_32:
+    ; Comparison: Variable(name=size, type=LONG) GT Variable(name=HEAP_SIZE, type=LONG)
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 8
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 <= t2
+    JPP skip_le_35, t0
+    JMP else_30
+skip_le_35:
+or_skip_34:
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP is_valid_ptr_end_22
+else_30:
+    ; Declaration: next
+    ; Function call: get_next_block
+    ; Preparing function call: get_next_block
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_next_block, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -24
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=next, type=LONG) NE Literal(value=0, type=LONG)
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 == t0
+    JZ else_36, t2
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP is_valid_ptr_end_22
+else_36:
+    ; return statement
+    LDI t0, 1
+    MOV a0, t0
+    JMP is_valid_ptr_end_22
+    ; Function epilogue
+is_valid_ptr_end_22:
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Deallocated 24 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ======================
+    ; Function: coalesce_free_blocks
+    ; ======================
+coalesce_free_blocks:
+    ; Pre-allocating 5 local variables
+    ; Pre-allocated variable: current (LONG)
+    ; Pre-allocated variable: current_size (LONG)
+    ; Pre-allocated variable: next (LONG)
+    ; Pre-allocated variable: next_size (LONG)
+    ; Pre-allocated variable: next_next (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 40 bytes
+    LDI t0, 40
+    SUB sp, sp, t0
+    ; Allocated 40 bytes for stack frame
+    ; If statement
+    ; Comparison: Variable(name=freeListHead, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_39, t2
+    ; return statement
+    JMP coalesce_free_blocks_end_38
+else_39:
+    ; Declaration: current
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t1, t0
+    LDI t0, -8
+    ADD t0, fp, t0
+    ST t0, t1
+    ; While loop
+loop_41:
+    ; Comparison: Variable(name=current, type=LONG) NE Literal(value=0, type=LONG)
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 == t0
+    JZ endloop_42, t2
+    ; Declaration: current_size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: next
+    ; Function call: get_next_block
+    ; Preparing function call: get_next_block
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_next_block, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -24
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Logical AND: BinaryOp(op=NE, left=Variable(name=next, type=LONG), right=Literal(value=0, type=LONG)) && BinaryOp(op=EQ, left=Variable(name=next, type=LONG), right=BinaryOp(op=ADD, left=Variable(name=current, type=LONG), right=Variable(name=current_size, type=LONG)))
+    ; Comparison: Variable(name=next, type=LONG) NE Literal(value=0, type=LONG)
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 == t0
+    JZ else_43, t2
+    ; Comparison: Variable(name=next, type=LONG) EQ BinaryOp(op=ADD, left=Variable(name=current, type=LONG), right=Variable(name=current_size, type=LONG))
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Binary operation: ADD
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t2, t0
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t3, t0
+    ADD t0, t2, t3
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_43, t2
+    ; Declaration: next_size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -32
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: next_next
+    ; Function call: get_next_block
+    ; Preparing function call: get_next_block
+    ; Evaluating argument 0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_next_block, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -40
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    ; Binary operation: ADD
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    LDI t0, -32
+    ADD t0, fp, t0
+    LD t3, t0
+    ADD t0, t2, t3
+    ; Evaluating argument 2
+    LDI t2, -40
+    ADD t2, fp, t2
+    LD t3, t2
+    PUSH t3
+    PUSH t0
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+    JMP endif_44
+else_43:
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to local variable: current
+    LDI t0, -8
+    ADD t0, fp, t0
+    ST t0, t1
+endif_44:
+    JMP loop_41
+endloop_42:
+    ; Function epilogue
+coalesce_free_blocks_end_38:
+    LDI t0, 40
+    ADD sp, sp, t0
+    ; Deallocated 40 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
     ; ======================================
-    ; Function: add1
+    ; Function: free
     ; ======================================
-add1:
+free:
+    ; Pre-allocating 2 local variables
+    ; Pre-allocated variable: header_addr (LONG)
+    ; Pre-allocated variable: block_size (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 16 bytes
+    LDI t0, 16
+    SUB sp, sp, t0
+    ; Allocated 16 bytes for stack frame
+    ; If statement
+    ; Binary operation: AND
+    ; Unary operation: NOT
+    ; Function call: is_valid_ptr
+    ; Preparing function call: is_valid_ptr
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL is_valid_ptr, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    NOT t1, t0
+    LDI t0, 1
+    AND t2, t1, t0
+    JZ else_46, t2
+    ; return statement
+    JMP free_end_45
+else_46:
+    ; Declaration: header_addr
+    ; Binary operation: SUB
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 16
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: block_size
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Expression statement
+    ; Function call: set_header
+    ; Preparing function call: set_header
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    ; Evaluating argument 2
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t3, t0
+    PUSH t3
+    PUSH t2
+    PUSH t1
+    JAL set_header, ra
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Cleaned up 3 arguments from stack
+    MOV t0, a0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to global variable: freeListHead
+    LDI t0, 40
+    ADD t0, gp, t0
+    ST t0, t1
+    ; Expression statement
+    ; Function call: coalesce_free_blocks
+    ; Preparing function call: coalesce_free_blocks
+    JAL coalesce_free_blocks, ra
+    MOV t0, a0
+    ; Function epilogue
+free_end_45:
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Deallocated 16 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ===================================
+    ; Function: realloc
+    ; ===================================
+realloc:
+    ; Pre-allocating 6 local variables
+    ; Pre-allocated variable: header_addr (LONG)
+    ; Pre-allocated variable: current_size (LONG)
+    ; Pre-allocated variable: aligned_new_size (LONG)
+    ; Pre-allocated variable: new_ptr (LONG)
+    ; Pre-allocated variable: copy_size (LONG)
+    ; Pre-allocated variable: i (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 48 bytes
+    LDI t0, 48
+    SUB sp, sp, t0
+    ; Allocated 48 bytes for stack frame
+    ; If statement
+    ; Comparison: Variable(name=ptr, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_49, t2
+    ; return statement
+    ; Function call: malloc
+    ; Preparing function call: malloc
+    ; Evaluating argument 0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL malloc, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    MOV a0, t0
+    JMP realloc_end_48
+else_49:
+    ; If statement
+    ; Comparison: Variable(name=new_size, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_51, t2
+    ; Expression statement
+    ; Function call: free
+    ; Preparing function call: free
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL free, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP realloc_end_48
+else_51:
+    ; If statement
+    ; Binary operation: AND
+    ; Unary operation: NOT
+    ; Function call: is_valid_ptr
+    ; Preparing function call: is_valid_ptr
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL is_valid_ptr, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    NOT t1, t0
+    LDI t0, 1
+    AND t2, t1, t0
+    JZ else_53, t2
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP realloc_end_48
+else_53:
+    ; Declaration: header_addr
+    ; Binary operation: SUB
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 16
+    ADD t0, gp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: current_size
+    ; Binary operation: SUB
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_block_size, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, 16
+    ADD t1, gp, t1
+    LD t2, t1
+    SUB t1, t0, t2
+    LDI t0, -16
+    ADD t0, fp, t0
+    ST t0, t1
+    ; Declaration: aligned_new_size
+    ; Function call: align_up
+    ; Preparing function call: align_up
+    ; Evaluating argument 0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Evaluating argument 1
+    LDI t0, 32
+    ADD t0, gp, t0
+    LD t2, t0
+    PUSH t2
+    PUSH t1
+    JAL align_up, ra
+    LDI t0, 16
+    ADD sp, sp, t0
+    ; Cleaned up 2 arguments from stack
+    MOV t0, a0
+    LDI t1, -24
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=aligned_new_size, type=LONG) LE Variable(name=current_size, type=LONG)
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 > t2
+    JPP else_55, t0
+    ; return statement
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    MOV a0, t1
+    JMP realloc_end_48
+else_55:
+    ; Declaration: new_ptr
+    ; Function call: malloc
+    ; Preparing function call: malloc
+    ; Evaluating argument 0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL malloc, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -32
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=new_ptr, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, -32
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_57, t2
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP realloc_end_48
+else_57:
+    ; Declaration: copy_size
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -40
+    ADD t0, fp, t0
+    ST t0, t1
+    ; If statement
+    ; Comparison: Variable(name=aligned_new_size, type=LONG) LT Variable(name=copy_size, type=LONG)
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -40
+    ADD t0, fp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 >= t2
+    JPN skip_ge_61, t0
+    JMP else_59
+skip_ge_61:
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Assignment to local variable: copy_size
+    LDI t0, -40
+    ADD t0, fp, t0
+    ST t0, t1
+else_59:
+    ; Declaration: i
+    LDI t0, 0
+    LDI t1, -48
+    ADD t1, fp, t1
+    ST t1, t0
+    ; While loop
+loop_62:
+    ; Comparison: Variable(name=i, type=LONG) LT Variable(name=copy_size, type=LONG)
+    LDI t0, -48
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -40
+    ADD t0, fp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 >= t2
+    JPN skip_ge_64, t0
+    JMP endloop_63
+skip_ge_64:
+    ; Binary operation: ADD
+    LDI t0, -32
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -48
+    ADD t0, fp, t0
+    LD t2, t0
+    ADD t0, t1, t2
+    ; Binary operation: ADD
+    LDI t1, 16
+    ADD t1, fp, t1
+    LD t2, t1
+    LDI t1, -48
+    ADD t1, fp, t1
+    LD t3, t1
+    ADD t1, t2, t3
+    LD t2, t1
+    ; Store LONG to address t0
+    ST t0, t2
+    ; Binary operation: ADD
+    LDI t0, -48
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    ADD t2, t1, t0
+    ; Assignment to local variable: i
+    LDI t0, -48
+    ADD t0, fp, t0
+    ST t0, t2
+    JMP loop_62
+endloop_63:
+    ; Expression statement
+    ; Function call: free
+    ; Preparing function call: free
+    ; Evaluating argument 0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL free, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    ; return statement
+    LDI t0, -32
+    ADD t0, fp, t0
+    LD t1, t0
+    MOV a0, t1
+    JMP realloc_end_48
+    ; Function epilogue
+realloc_end_48:
+    LDI t0, 48
+    ADD sp, sp, t0
+    ; Deallocated 48 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ====================================
+    ; Function: calloc
+    ; ====================================
+calloc:
+    ; Pre-allocating 3 local variables
+    ; Pre-allocated variable: total_size (LONG)
+    ; Pre-allocated variable: ptr (LONG)
+    ; Pre-allocated variable: i (LONG)
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 24 bytes
+    LDI t0, 24
+    SUB sp, sp, t0
+    ; Allocated 24 bytes for stack frame
+    ; Declaration: total_size
+    ; Binary operation: MUL
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t2, t0
+    MUL t0, t1, t2
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Declaration: ptr
+    ; Function call: malloc
+    ; Preparing function call: malloc
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL malloc, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -16
+    ADD t1, fp, t1
+    ST t1, t0
+    ; If statement
+    ; Comparison: Variable(name=ptr, type=LONG) EQ Literal(value=0, type=LONG)
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 != t0
+    JNZ else_66, t2
+    ; return statement
+    LDI t0, 0
+    MOV a0, t0
+    JMP calloc_end_65
+else_66:
+    ; Declaration: i
+    LDI t0, 0
+    LDI t1, -24
+    ADD t1, fp, t1
+    ST t1, t0
+    ; While loop
+loop_68:
+    ; Comparison: Variable(name=i, type=LONG) LT Variable(name=total_size, type=LONG)
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t2, t0
+    SUB t0, t1, t2
+    ; Jump if t1 >= t2
+    JPN skip_ge_70, t0
+    JMP endloop_69
+skip_ge_70:
+    ; Binary operation: ADD
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t2, t0
+    ADD t0, t1, t2
+    LDI t1, 0
+    ; Store LONG to address t0
+    ST t0, t1
+    ; Binary operation: ADD
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    ADD t2, t1, t0
+    ; Assignment to local variable: i
+    LDI t0, -24
+    ADD t0, fp, t0
+    ST t0, t2
+    JMP loop_68
+endloop_69:
+    ; return statement
+    LDI t0, -16
+    ADD t0, fp, t0
+    LD t1, t0
+    MOV a0, t1
+    JMP calloc_end_65
+    ; Function epilogue
+calloc_end_65:
+    LDI t0, 24
+    ADD sp, sp, t0
+    ; Deallocated 24 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ============================
+    ; Function: get_heap_stats
+    ; ============================
+get_heap_stats:
     ; Pre-allocating 1 local variables
-    ; Pre-allocated variable: r (LONG)
+    ; Pre-allocated variable: current (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
@@ -109,33 +1651,273 @@ add1:
     LDI t0, 8
     SUB sp, sp, t0
     ; Allocated 8 bytes for stack frame
-    ; Declaration: r
-    ; Binary operation: ADD
     LDI t0, 16
     ADD t0, fp, t0
-    LI t1, t0
-    LDI t0, 1
-    ADD t2, t1, t0
+    LD t1, t0
+    LDI t0, 0
+    ; Store LONG to address t1
+    ST t1, t0
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    ; Store LONG to address t1
+    ST t1, t0
+    LDI t0, 32
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 0
+    ; Store LONG to address t1
+    ST t1, t0
+    ; Declaration: current
+    LDI t0, 40
+    ADD t0, gp, t0
+    LD t1, t0
     LDI t0, -8
     ADD t0, fp, t0
-    ST t0, t2
-    ; return statement
-    ; Type conversion to INT
+    ST t0, t1
+    ; While loop
+loop_72:
+    ; Comparison: Variable(name=current, type=LONG) NE Literal(value=0, type=LONG)
     LDI t0, -8
     ADD t0, fp, t0
     LD t1, t0
-    ; Converting LONG to INT (truncate 64→32 and sign-extend to 64)
-    LDI t2, 4294967295
-    AND t0, t1, t2
-    SHL t0, t0, 32
-    SAR t0, t0, 32
-    MOV a0, t0
-    JMP add1_end_1
+    LDI t0, 0
+    SUB t2, t1, t0
+    ; Jump if t1 == t0
+    JZ endloop_73, t2
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Binary operation: ADD
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t2, t0
+    LD t0, t2
+    ; Function call: get_block_size
+    ; Preparing function call: get_block_size
+    ; Saving 2 live temporaries
+    PUSH t1
+    PUSH t0
+    ; Evaluating argument 0
+    LDI t2, -8
+    ADD t2, fp, t2
+    LD t3, t2
+    PUSH t3
+    JAL get_block_size, ra
+    LDI t2, 8
+    ADD sp, sp, t2
+    ; Cleaned up 1 arguments from stack
+    MOV t2, a0
+    ; Restoring 2 saved temporaries
+    POP t0
+    POP t1
+    ADD t3, t0, t2
+    ; Store LONG to address t1
+    ST t1, t3
+    LDI t0, 32
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Binary operation: ADD
+    LDI t0, 32
+    ADD t0, fp, t0
+    LD t2, t0
+    LD t0, t2
+    LDI t2, 1
+    ADD t3, t0, t2
+    ; Store LONG to address t1
+    ST t1, t3
+    ; Function call: get_next_block
+    ; Preparing function call: get_next_block
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL get_next_block, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    ; Assignment to local variable: current
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    JMP loop_72
+endloop_73:
+    LDI t0, 24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Binary operation: SUB
+    LDI t0, 8
+    ADD t0, gp, t0
+    LD t2, t0
+    LDI t0, 16
+    ADD t0, fp, t0
+    LD t3, t0
+    LD t0, t3
+    SUB t3, t2, t0
+    ; Store LONG to address t1
+    ST t1, t3
     ; Function epilogue
-add1_end_1:
+get_heap_stats_end_71:
     LDI t0, 8
     ADD sp, sp, t0
     ; Deallocated 8 bytes for frame
+    POP fp
+    POP ra
+    JMP ra                               ; Return from function
+
+    ; ======================================
+    ; Function: main
+    ; ======================================
+main:
+    ; Pre-allocating 5 local variables
+    ; Pre-allocated variable: raw (LONG)
+    ; Pre-allocated variable: x (BYTE)
+    ; Pre-allocated variable: p (PointerType[elementType=BYTE])
+    ; Pre-allocated variable: x (BYTE)
+    ; Pre-allocated variable: arr (PointerType[elementType=LONG])
+    ; Function prologue
+    PUSH ra
+    PUSH fp
+    MOV fp, sp
+    ; Total frame size: 32 bytes
+    LDI t0, 32
+    SUB sp, sp, t0
+    ; Allocated 32 bytes for stack frame
+    ; Declaration: raw
+    ; Function call: malloc
+    ; Preparing function call: malloc
+    ; Evaluating argument 0
+    LDI t0, 16
+    PUSH t0
+    JAL malloc, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -8
+    ADD t1, fp, t1
+    ST t1, t0
+    ; Binary operation: ADD
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    ADD t2, t1, t0
+    LDI t0, 43690
+    ; Store INT to address t2
+    SI t2, t0
+    ; Declaration: x
+    ; Binary operation: ADD
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    ADD t2, t1, t0
+    LB t0, t2
+    LDI t1, -9
+    ADD t1, fp, t1
+    SB t1, t0
+    ; Declaration: p
+    ; Function call: malloc
+    ; Preparing function call: malloc
+    ; Evaluating argument 0
+    LDI t0, 4
+    PUSH t0
+    JAL malloc, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -17
+    ADD t1, fp, t1
+    ST t1, t0
+    LDI t0, -17
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 255
+    ; Store LONG to address t1
+    ST t1, t0
+    LDI t0, -17
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    LDI t2, 170
+    ; Array index assignment
+    LDI t3, 1
+    MUL t3, t0, t3
+    ADD t4, t1, t3
+    SB t4, t2
+    ; Declaration: x
+    ; Array indexing
+    LDI t0, -17
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 1
+    LDI t2, 1
+    MUL t2, t0, t2
+    ADD t3, t1, t2
+    LB t4, t3
+    LDI t0, -9
+    ADD t0, fp, t0
+    SB t0, t4
+    ; Declaration: arr
+    ; Function call: malloc
+    ; Preparing function call: malloc
+    ; Evaluating argument 0
+    LDI t0, 32
+    PUSH t0
+    JAL malloc, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    LDI t1, -25
+    ADD t1, fp, t1
+    ST t1, t0
+    LDI t0, -25
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Storing array literal to memory at t1
+    LDI t0, 0
+    ADD t2, t1, t0
+    LDI t3, 1
+    ST t2, t3
+    LDI t0, 8
+    ADD t2, t1, t0
+    LDI t3, 2
+    ST t2, t3
+    LDI t0, 16
+    ADD t2, t1, t0
+    LDI t3, 3
+    ST t2, t3
+    LDI t0, 24
+    ADD t2, t1, t0
+    LDI t3, 4
+    ST t2, t3
+    LDI t0, -25
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 2
+    LDI t2, 222
+    ; Array index assignment
+    LDI t3, 8
+    MUL t3, t0, t3
+    ADD t4, t1, t3
+    ST t4, t2
+    ; While loop
+loop_75:
+    LDI t0, 1
+    JZ endloop_76, t0
+    JMP loop_75
+endloop_76:
+    ; Function epilogue
+main_end_74:
+    LDI t0, 32
+    ADD sp, sp, t0
+    ; Deallocated 32 bytes for frame
     POP fp
     POP ra
     JMP ra                               ; Return from function

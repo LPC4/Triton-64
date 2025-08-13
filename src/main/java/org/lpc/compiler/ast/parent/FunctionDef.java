@@ -2,7 +2,7 @@ package org.lpc.compiler.ast.parent;
 
 import lombok.Getter;
 import lombok.ToString;
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.AstNode;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.Statement;
@@ -14,11 +14,11 @@ import java.util.List;
 public class FunctionDef implements AstNode {
     private final String name;
     private final List<String> parameters;
-    private final List<VariableType> parameterTypes;
+    private final List<Type> parameterTypes;
     private final List<Statement> body;
-    private final VariableType returnType;
+    private final Type returnType;
 
-    public FunctionDef(String name, List<String> parameters, List<Statement> body, List<VariableType> parameterTypes, VariableType returnType) {
+    public FunctionDef(String name, List<String> parameters, List<Statement> body, List<Type> parameterTypes, Type returnType) {
         this.name = name;
         this.parameters = parameters;
         this.body = body;

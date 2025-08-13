@@ -1,6 +1,7 @@
 package org.lpc.compiler.context_managers;
 
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.GlobalDeclaration;
 import org.lpc.compiler.generators.InstructionGenerator;
@@ -29,7 +30,7 @@ public class GlobalManager {
         emitter.sectionHeader("Global variables");
 
         for (GlobalDeclaration decl : globalDeclarations) {
-            int size = getSizeForType(decl.getType());
+            int size = decl.getType().getSize();
 
             globals.put(decl.getName(), new GlobalVariableInfo(currentOffset, size, decl.getType()));
 
@@ -73,29 +74,31 @@ public class GlobalManager {
         return addrReg;
     }
 
-    public void storeToGlobal(String name, String valueReg, VariableType type) {
+    public void storeToGlobal(String name, String valueReg, Type type) {
         String addrReg = getGlobalAddress(name);
         try {
-            switch (type) {
-                case BYTE -> emitter.storeByte(addrReg, valueReg);
-                case INT -> emitter.storeInt(addrReg, valueReg);
-                case LONG -> emitter.store(addrReg, valueReg);
-                default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+            if (type.isPrimitive()) {
+                storePrimitive(addrReg, valueReg, type);
+            } else if (type.isPtr()) {
+                emitter.store(addrReg, valueReg); // pointers are stored as long
+            } else {
+                throw new IllegalArgumentException("Unsupported type for global variable: " + type);
             }
         } finally {
             registerManager.freeRegister(addrReg);
         }
     }
 
-    public String loadFromGlobal(String name, VariableType type) {
+    public String loadFromGlobal(String name, Type type) {
         String addrReg = getGlobalAddress(name);
         String valueReg = registerManager.allocateRegister("global_load_value");
         try {
-            switch (type) {
-                case BYTE -> emitter.loadByte(valueReg, addrReg);
-                case INT -> emitter.loadInt(valueReg, addrReg);
-                case LONG -> emitter.load(valueReg, addrReg);
-                default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+            if (type.isPrimitive()) {
+                loadPrimitive(valueReg, addrReg, type);
+            } else if (type.isPtr()) {
+                emitter.load(valueReg, addrReg); // points is long
+            } else {
+                throw new IllegalArgumentException("Unsupported type for global variable: " + type);
             }
             return valueReg;
         } finally {
@@ -103,18 +106,36 @@ public class GlobalManager {
         }
     }
 
-    private int getSizeForType(VariableType type) {
-        return switch (type) {
-            case BYTE -> 1;
-            case INT -> 4;
-            case LONG -> 8;
-        };
+    private void storePrimitive(String addrReg, String valueReg, Type type) {
+        switch (type) {
+            case PrimitiveType.BYTE -> emitter.storeByte(addrReg, valueReg);
+            case PrimitiveType.INT -> emitter.storeInt(addrReg, valueReg);
+            case PrimitiveType.LONG -> emitter.store(addrReg, valueReg);
+            default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+        }
+    }
+
+    private void loadPrimitive(String valueReg, String addrReg, Type type) {
+        switch (type) {
+            case PrimitiveType.BYTE -> emitter.loadByte(valueReg, addrReg);
+            case PrimitiveType.INT -> emitter.loadInt(valueReg, addrReg);
+            case PrimitiveType.LONG -> emitter.load(valueReg, addrReg);
+            default -> throw new IllegalArgumentException("Unknown variable type: " + type);
+        }
     }
 
     private int alignOffset(int offset, int alignment) {
         return (offset + alignment - 1) & -alignment;
     }
 
-    private record GlobalVariableInfo(int offset, int size, VariableType type) {
+    public Type getVariableType(String name) {
+        GlobalVariableInfo info = globals.get(name);
+        if (info == null) {
+            throw new IllegalArgumentException("Global variable not found: " + name);
+        }
+        return info.type;
+    }
+
+    private record GlobalVariableInfo(int offset, int size, Type type) {
     }
 }

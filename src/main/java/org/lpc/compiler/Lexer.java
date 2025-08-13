@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Lexer {
+    private static final String SPECIAL_CHARS = "~@(){}[]=-,+-*/%<>!&:|";
     private final String input;
     private int position = 0;
 
@@ -164,6 +165,6 @@ public class Lexer {
     }
 
     private boolean isSpecialChar(char c) {
-        return "~@(){}[]=-,+-*/%<>!&:|".indexOf(c) != -1;
+        return SPECIAL_CHARS.indexOf(c) != -1;
     }
 }

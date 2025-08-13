@@ -1,6 +1,7 @@
 package org.lpc.compiler.generators;
 
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.expressions.Expression;
 import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.Declaration;
@@ -35,7 +36,7 @@ public class FunctionGenerator {
         this.stackManager = stackManager;
     }
 
-    public void generateFunction(String name, List<String> parameters, List<VariableType> parameterTypes, List<Statement> body,
+    public void generateFunction(String name, List<String> parameters, List<Type> parameterTypes, List<Statement> body,
                                  String endLabel, ProgramGenerator programGenerator) {
         emitter.sectionHeader("Function: " + name);
         emitter.label(name);
@@ -61,7 +62,7 @@ public class FunctionGenerator {
 
         for (Statement stmt : declarations) {
             if (stmt instanceof Declaration decl) {
-                VariableType type = decl.getType() != null ? decl.getType() : VariableType.LONG;
+                Type type = decl.getType() != null ? decl.getType() : PrimitiveType.LONG;
                 stackManager.allocateVariable(decl.getName(), type);
                 emitter.comment("Pre-allocated variable: " + decl.getName() + " (" + type + ")");
             }

@@ -31,7 +31,7 @@ import static org.lpc.memory.MemoryMap.RAM_SIZE;
 @SuppressWarnings("FieldCanBeLocal")
 public final class Main extends Application {
     // Application components
-    private static final String MAIN_FILE = "/test/test_typing.tc";
+    private static final String MAIN_FILE = "/test/test_typing3.tc";
     private static final String APP_NAME = "Triton-64 VM";
     private final ExecutorService executor = Executors.newCachedThreadPool(r -> 
             new Thread(r, "VM-Worker") {{setDaemon(true);}}
@@ -44,6 +44,11 @@ public final class Main extends Application {
     // I/O devices
     private KeyboardDevice keyboardDevice;
     private TimerDevice timerDevice;
+
+    /**
+     * TODO:
+     *   - make ptr's longs, no specific ptr type
+     */
 
     @Override
     public void init() {

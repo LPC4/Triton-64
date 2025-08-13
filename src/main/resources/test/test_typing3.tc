@@ -1,0 +1,19 @@
+import memory
+
+func main(): byte {
+    var raw: long = malloc(16)  ; raw pointer
+    int@(raw + 1) = 0xAAAA      ; valid
+    ;raw[0] = 0xFFFF            ; invalid, no type info, throws
+    var x: byte = byte@(raw + 1); valid, load byte from raw pointer
+
+    var p: byte* = malloc(4)    ; typed pointer
+    @p = 0xFF                   ; store
+    p[1] = 0xAA                 ; store at next byte
+    var x: byte = p[1]          ; load
+
+    var arr: long[] = malloc(32) ; array of longs, same as a long* but just for clarity
+    @arr = [1,2,3,4]             ; store array literal
+    arr[2] = 0xDE                ; store 3rd element
+
+    while (1) {}  ; infinite loop, just to keep the program running
+}

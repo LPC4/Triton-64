@@ -1,11 +1,12 @@
 package org.lpc.compiler.generators;
 
 import org.lpc.compiler.CodeGenerator;
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
+import org.lpc.compiler.types.PointerType;
 import org.lpc.compiler.ast.statements.*;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.context_managers.*;
-
 import java.util.List;
 import java.util.Optional;
 
@@ -19,10 +20,8 @@ public class StatementGenerator {
     private final ConditionalGenerator conditionalGenerator;
     private final GlobalManager globalManager;
     private final ContextManager context;
-
     // Reference to the main generator for recursive calls
     private final CodeGenerator astVisitor;
-
     public StatementGenerator(
             InstructionGenerator emitter,
             RegisterManager registerManager,
@@ -42,31 +41,25 @@ public class StatementGenerator {
 
     public String visitReturnStatement(ReturnStatement returnStatement) {
         emitter.comment("return statement");
-
         Optional.ofNullable(returnStatement.getValue()).ifPresent(value -> {
             String valueReg = value.accept(astVisitor);
             emitter.move("a0", valueReg);
             registerManager.freeRegister(valueReg);
         });
-
         String currentFunctionEndLabel = context.getCurrentFunctionEndLabel();
         if (currentFunctionEndLabel == null) {
             throw new IllegalStateException("Return statement outside of function");
         }
-
         emitter.jump(currentFunctionEndLabel);
         return null;
     }
 
     public String visitIfStatement(IfStatement ifStatement) {
         emitter.comment("If statement");
-
-         String elseLabel = context.generateLabel("else");
+        String elseLabel = context.generateLabel("else");
         String endLabel = context.generateLabel("endif");
-
         conditionalGenerator.generateConditionalJump(ifStatement.getCondition(), elseLabel, astVisitor);
         generateStatements(ifStatement.getThenBranch());
-
         if (hasElseBranch(ifStatement)) {
             emitter.jump(endLabel);
             emitter.label(elseLabel);
@@ -75,42 +68,34 @@ public class StatementGenerator {
         } else {
             emitter.label(elseLabel);
         }
-
         return null;
     }
 
     public String visitWhileStatement(WhileStatement whileStatement) {
         emitter.comment("While loop");
-
         String loopLabel = context.generateLabel("loop");
         String endLabel = context.generateLabel("endloop");
-
         emitter.label(loopLabel);
         conditionalGenerator.generateConditionalJump(whileStatement.getCondition(), endLabel, astVisitor);
         generateStatements(whileStatement.getBody());
         emitter.jump(loopLabel);
         emitter.label(endLabel);
-
         return null;
     }
 
     public String visitDeclaration(Declaration declaration) {
         emitter.comment("Declaration: " + declaration.getName());
-
         int offset = stackManager.allocateVariable(declaration.getName(), declaration.getType());
-
         Optional.ofNullable(declaration.getInitializer()).ifPresent(initializer -> {
             String valueReg = initializer.accept(astVisitor);
             stackManager.storeToStack(offset, valueReg, declaration.getType());
             registerManager.freeRegister(valueReg);
         });
-
         return null;
     }
 
     public String visitAssignmentStatement(AssignmentStatement assignment) {
         Expression target = assignment.getTarget();
-
         return switch (target) {
             case Variable var -> {
                 handleVariableAssignment(var, assignment.getInitialValue());
@@ -134,7 +119,6 @@ public class StatementGenerator {
             generateArrayAssignment(var, arrayLit);
         } else {
             String valueReg = value.accept(astVisitor);
-
             if (globalManager.isGlobal(var.getName())) {
                 emitter.comment("Assignment to global variable: " + var.getName());
                 globalManager.storeToGlobal(var.getName(), valueReg, var.getType());
@@ -143,22 +127,32 @@ public class StatementGenerator {
                 int offset = stackManager.getVariableOffset(var.getName());
                 stackManager.storeToStack(offset, valueReg, var.getType());
             }
-
             registerManager.freeRegister(valueReg);
         }
     }
 
     private void handleDereferenceAssignment(Dereference deref, Expression value) {
         String addrReg = deref.getAddress().accept(astVisitor);
-
         try {
             if (value instanceof ArrayLiteral arrayLit) {
-                generateArrayToMemory(addrReg, arrayLit);
+                // Handle array literals (only valid for typed pointers)
+                Type addrType = getExpressionType(deref.getAddress());
+                if (!addrType.isPtr()) {
+                    throw new IllegalStateException(
+                            "Array literals require typed pointer, but got: " + addrType
+                    );
+                }
+                generateArrayToMemory(addrReg, arrayLit, addrType.asPointer().getElementType());
             } else {
                 String valueReg = value.accept(astVisitor);
                 try {
-                    emitter.comment("Assignment to dereferenced address at " + addrReg);
-                    emitter.instruction("ST", addrReg, valueReg);
+                    // Use dereference target type for storage
+                    Type storeType = deref.getType() != null
+                            ? deref.getType()
+                            : getExpressionType(value);
+
+                    emitter.comment("Store " + storeType + " to address " + addrReg);
+                    generateTypedStore(addrReg, valueReg, storeType);
                 } finally {
                     registerManager.freeRegister(valueReg);
                 }
@@ -172,18 +166,30 @@ public class StatementGenerator {
         String arrayReg = arrayIdx.getArray().accept(astVisitor);
         String indexReg = arrayIdx.getIndex().accept(astVisitor);
         String valueReg = value.accept(astVisitor);
-
         String offsetReg = registerManager.allocateRegister();
         String addrReg = registerManager.allocateRegister();
-
         try {
             emitter.comment("Array index assignment");
+            // ENFORCE: Array indexing requires a pointer type
+            Type arrayType = getExpressionType(arrayIdx.getArray());
+            if (!arrayType.isPtr()) {
+                throw new IllegalArgumentException(
+                        "Array indexing requires pointer type, but got: " + arrayType +
+                                " (use type conversion like byte@ptr for raw pointers)"
+                );
+            }
 
-            // Calculate address: array + (index * 8)
-            emitter.instruction("LDI", offsetReg, "8");
+            PointerType ptrType = arrayType.asPointer();
+            Type elementType = ptrType.getElementType();
+            int elementSize = elementType.getSize();
+
+            // Calculate address: array + (index * elementSize)
+            emitter.instruction("LDI", offsetReg, String.valueOf(elementSize));
             emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
             emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
-            emitter.instruction("ST", addrReg, valueReg);
+
+            // Store based on element type
+            generateTypedStore(addrReg, valueReg, elementType);
         } finally {
             registerManager.freeRegister(arrayReg);
             registerManager.freeRegister(indexReg);
@@ -204,45 +210,56 @@ public class StatementGenerator {
 
     public String visitExpressionStatement(ExpressionStatement expressionStatement) {
         emitter.comment("Expression statement");
-
         String resultReg = expressionStatement.getExpression().accept(astVisitor);
         if (resultReg != null) {
             registerManager.freeRegister(resultReg);
         }
-
         return null;
     }
 
     private void generateArrayAssignment(Variable var, ArrayLiteral arrayLit) {
         emitter.comment("Array assignment to variable: " + var.getName());
-
         String addrReg = globalManager.isGlobal(var.getName())
-                ? globalManager.loadFromGlobal(var.getName(), VariableType.LONG)
-                : stackManager.loadFromStack(stackManager.getVariableOffset(var.getName()), VariableType.LONG);
-
+                ? globalManager.loadFromGlobal(var.getName(), PrimitiveType.LONG)
+                : stackManager.loadFromStack(stackManager.getVariableOffset(var.getName()), PrimitiveType.LONG);
         try {
-            generateArrayToMemory(addrReg, arrayLit);
+            // Get the variable type to determine element type
+            Type varType = getExpressionType(var);
+            Type elementType;
+            if (varType.isPtr()) {
+                elementType = varType.asPointer().getElementType();
+            } else {
+                elementType = PrimitiveType.LONG; // Default
+            }
+
+            generateArrayToMemory(addrReg, arrayLit, elementType);
         } finally {
             registerManager.freeRegister(addrReg);
         }
     }
 
-    private void generateArrayToMemory(String baseAddrReg, ArrayLiteral arrayLit) {
+    private void generateArrayToMemory(String baseAddrReg, ArrayLiteral arrayLit, Type elementType) {
         emitter.comment("Storing array literal to memory at " + baseAddrReg);
+
+        // ENFORCE: Only valid for typed pointers
+        if (elementType == null || (!elementType.isPtr() && !elementType.isPrimitive())) {
+            throw new IllegalStateException(
+                    "Array literals require typed pointer target, but got: " + elementType
+            );
+        }
 
         String offsetReg = registerManager.allocateRegister();
         String currentAddrReg = registerManager.allocateRegister();
-
         try {
             List<Expression> elements = arrayLit.getElements();
+            int elementSize = elementType.getSize();
             for (int i = 0; i < elements.size(); i++) {
-                // Calculate address: base + (i * 8)
-                emitter.instruction("LDI", offsetReg, String.valueOf(i * 8));
+                // Calculate address: base + (i * elementSize)
+                emitter.instruction("LDI", offsetReg, String.valueOf(i * elementSize));
                 emitter.instruction("ADD", currentAddrReg, baseAddrReg, offsetReg);
-
                 String elementReg = elements.get(i).accept(astVisitor);
                 try {
-                    emitter.instruction("ST", currentAddrReg, elementReg);
+                    generateTypedStore(currentAddrReg, elementReg, elementType);
                 } finally {
                     registerManager.freeRegister(elementReg);
                 }
@@ -251,6 +268,49 @@ public class StatementGenerator {
             registerManager.freeRegister(offsetReg);
             registerManager.freeRegister(currentAddrReg);
         }
+    }
+
+    /**
+     * Generates appropriate store instruction based on the target type
+     */
+    private void generateTypedStore(String addrReg, String valueReg, Type targetType) {
+        switch (targetType) {
+            case PrimitiveType.BYTE -> emitter.instruction("SB", addrReg, valueReg);  // Store byte (1 byte)
+            case PrimitiveType.INT -> emitter.instruction("SI", addrReg, valueReg);   // Store int (4 bytes)
+            case PrimitiveType.LONG -> emitter.instruction("ST", addrReg, valueReg);   // Store long (8 bytes)
+            default -> {
+                if (targetType.isPtr()) {
+                    emitter.instruction("ST", addrReg, valueReg);  // Pointers are stored as longs
+                } else {
+                    throw new IllegalStateException("Unsupported store type: " + targetType);
+                }
+            }
+        }
+    }
+
+    private Type getExpressionType(Expression expr) {
+        // TODO: Implement proper type inference/checking
+        if (expr instanceof Variable var) {
+            // Look up variable type from symbol table
+            if (globalManager.isGlobal(var.getName())) {
+                return globalManager.getVariableType(var.getName());
+            } else {
+                return stackManager.getVariableType(var.getName());
+            }
+        } else if (expr instanceof Literal<?> lit) {
+            return lit.getType();
+        } else if (expr instanceof Dereference deref) {
+            return deref.getType();
+        } else if (expr instanceof ArrayIndex arrayIdx) {
+            Type arrayType = getExpressionType(arrayIdx.getArray());
+            if (arrayType.isPtr()) {
+                return arrayType.asPointer().getElementType();
+            }
+            // For non-pointer types (shouldn't happen for arrays), assume long
+            return PrimitiveType.LONG;
+        }
+        // Default to long for now
+        return PrimitiveType.LONG;
     }
 
     private void generateStatements(List<Statement> statements) {

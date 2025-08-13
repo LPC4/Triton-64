@@ -1,43 +1,41 @@
 package org.lpc.compiler;
 
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
+import org.lpc.compiler.types.PointerType;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.ast.expressions.Expression;
 import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
 import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.*;
-
 import java.util.*;
+import java.util.Objects;
 
 public class Parser {
     private final List<String> tokens;
     private int position = 0;
     private final SymbolTable symbolTable = new SymbolTable();
-    private VariableType currentFunctionReturnType = VariableType.LONG;
-
+    private Type currentFunctionReturnType = PrimitiveType.LONG;
     public Parser(Lexer lexer) {
         this.tokens = lexer.tokenize();
     }
 
     public Program parse() {
         symbolTable.enterScope();  // Enter global scope
-
         List<GlobalDeclaration> globals = new ArrayList<>();
         List<FunctionDef> functions = new ArrayList<>();
-
         while (!isAtEnd()) {
-            if (check("global")) {
+            if (match("global")) {
                 GlobalDeclaration global = parseGlobalDeclaration();
                 symbolTable.define(global.getName(), global.getType());
                 globals.add(global);
-            } else if (check("func")) {
+            } else if (match("func")) {
                 functions.add(parseFunction());
             } else {
                 throw new RuntimeException("Expected 'global' or 'func', found: " + peek());
             }
         }
-
         symbolTable.exitScope();
         Program program = new Program(globals, functions);
         System.out.println("\nParsed AST:");
@@ -46,67 +44,57 @@ public class Parser {
     }
 
     private GlobalDeclaration parseGlobalDeclaration() {
-        consume("global");
         String name = consume();
-
         // typed
-        VariableType type;
+        Type type;
         if (match(":")) {
             type = parseVariableType();
         } else { // default to long
-            type = VariableType.LONG;
+            type = PrimitiveType.LONG;
         }
-
         Expression initializer;
         if (match("=")) {
             initializer = parseExpression(type);
         } else {
             initializer = createLiteral(0, type);
         }
-
         return new GlobalDeclaration(name, initializer, type);
     }
 
     private Statement parseDeclaration() {
         String name = consume();
-
         // typed
-        VariableType type;
+        Type type;
         if (match(":")) {
             type = parseVariableType();
         } else { // default to long
-            type = VariableType.LONG;
+            type = PrimitiveType.LONG;
         }
-
         Expression initializer;
         if (match("=")) {
             initializer = parseExpression(type);
         } else {
             initializer = createLiteral(0, type);
         }
-
         // Add to symbol table
         symbolTable.define(name, type);
-
         return new Declaration(name, initializer, type);
     }
 
     private FunctionDef parseFunction() {
         symbolTable.enterScope();  // Enter function scope
-        consume("func");
         String name = consume();
-
         consume("(");
         List<String> parameters = new ArrayList<>();
-        List<VariableType> parameterTypes = new ArrayList<>();
+        List<Type> parameterTypes = new ArrayList<>();
         if (!check(")")) {
             do {
                 String paramName = consume();
-                VariableType paramType;
+                Type paramType;
                 if (match(":")) {
                     paramType = parseVariableType();
                 } else {
-                    paramType = VariableType.LONG;
+                    paramType = PrimitiveType.LONG;
                 }
                 parameters.add(paramName);
                 parameterTypes.add(paramType);
@@ -114,13 +102,11 @@ public class Parser {
             } while (match(","));
         }
         consume(")");
-
-        VariableType returnType = VariableType.LONG;
+        Type returnType = PrimitiveType.LONG;
         if (match(":")) {
             returnType = parseVariableType();
             currentFunctionReturnType = returnType;
         }
-
         consume("{");
         List<Statement> body = parseBlock();
         symbolTable.exitScope();  // Exit function scope
@@ -144,31 +130,26 @@ public class Parser {
         if (match("while")) return parseWhileStatement();
         if (match("var")) return parseDeclaration();
         if (match("asm")) return parseAsmStatement();
-
         return parseAssignmentOrExpressionStatement();
     }
 
     private Statement parseAssignmentOrExpressionStatement() {
-        // Parse the left side, which could include array indexing
+        // Parse the left side, which could include array indexing or dereference
         Expression left = parsePostfix(null);
-
         if (check("=")) {
             consume("=");
             Expression right = parseExpression(null);
             return new AssignmentStatement(left, right);
         }
-
         // Continue parsing the expression with the left side
         Expression expr = parseExpressionRest(left);
-
         if (expr instanceof FunctionCall) {
             return new ExpressionStatement(expr);
         }
-
         return new ExpressionStatement(expr);
     }
 
-    private Expression parseExpression(VariableType expectedType) {
+    private Expression parseExpression(Type expectedType) {
         return parseLogicalOr(expectedType);
     }
 
@@ -176,12 +157,12 @@ public class Parser {
         return parseLogicalOrRest(left, null);
     }
 
-    private Expression parseLogicalOr(VariableType expectedType) {
+    private Expression parseLogicalOr(Type expectedType) {
         Expression left = parseLogicalAnd(expectedType);
         return parseLogicalOrRest(left, expectedType);
     }
 
-    private Expression parseLogicalOrRest(Expression left, VariableType expectedType) {
+    private Expression parseLogicalOrRest(Expression left, Type expectedType) {
         while (match("||")) {
             String operator = tokens.get(position - 1);
             Expression right = parseLogicalAnd(expectedType);
@@ -190,12 +171,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseLogicalAnd(VariableType expectedType) {
+    private Expression parseLogicalAnd(Type expectedType) {
         Expression left = parseBitwiseOr(expectedType);
         return parseLogicalAndRest(left, expectedType);
     }
 
-    private Expression parseLogicalAndRest(Expression left, VariableType expectedType) {
+    private Expression parseLogicalAndRest(Expression left, Type expectedType) {
         while (match("&&")) {
             String operator = tokens.get(position - 1);
             Expression right = parseBitwiseOr(expectedType);
@@ -204,12 +185,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseBitwiseOr(VariableType expectedType) {
+    private Expression parseBitwiseOr(Type expectedType) {
         Expression left = parseBitwiseXor(expectedType);
         return parseBitwiseOrRest(left, expectedType);
     }
 
-    private Expression parseBitwiseOrRest(Expression left, VariableType expectedType) {
+    private Expression parseBitwiseOrRest(Expression left, Type expectedType) {
         while (match("|")) {
             String operator = tokens.get(position - 1);
             Expression right = parseBitwiseXor(expectedType);
@@ -218,12 +199,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseBitwiseXor(VariableType expectedType) {
+    private Expression parseBitwiseXor(Type expectedType) {
         Expression left = parseBitwiseAnd(expectedType);
         return parseBitwiseXorRest(left, expectedType);
     }
 
-    private Expression parseBitwiseXorRest(Expression left, VariableType expectedType) {
+    private Expression parseBitwiseXorRest(Expression left, Type expectedType) {
         while (match("^")) {
             String operator = tokens.get(position - 1);
             Expression right = parseBitwiseAnd(expectedType);
@@ -232,12 +213,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseBitwiseAnd(VariableType expectedType) {
+    private Expression parseBitwiseAnd(Type expectedType) {
         Expression left = parseEquality(expectedType);
         return parseBitwiseAndRest(left, expectedType);
     }
 
-    private Expression parseBitwiseAndRest(Expression left, VariableType expectedType) {
+    private Expression parseBitwiseAndRest(Expression left, Type expectedType) {
         while (match("&")) {
             String operator = tokens.get(position - 1);
             Expression right = parseEquality(expectedType);
@@ -246,12 +227,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseEquality(VariableType expectedType) {
+    private Expression parseEquality(Type expectedType) {
         Expression left = parseComparison(expectedType);
         return parseEqualityRest(left, expectedType);
     }
 
-    private Expression parseEqualityRest(Expression left, VariableType expectedType) {
+    private Expression parseEqualityRest(Expression left, Type expectedType) {
         while (match("==", "!=")) {
             String operator = tokens.get(position - 1);
             Expression right = parseComparison(expectedType);
@@ -260,12 +241,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseComparison(VariableType expectedType) {
+    private Expression parseComparison(Type expectedType) {
         Expression left = parseShift(expectedType);
         return parseComparisonRest(left, expectedType);
     }
 
-    private Expression parseComparisonRest(Expression left, VariableType expectedType) {
+    private Expression parseComparisonRest(Expression left, Type expectedType) {
         while (match("<=", ">=", "<", ">")) {
             String operator = tokens.get(position - 1);
             Expression right = parseShift(expectedType);
@@ -274,12 +255,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseShift(VariableType expectedType) {
+    private Expression parseShift(Type expectedType) {
         Expression left = parseAdditive(expectedType);
         return parseShiftRest(left, expectedType);
     }
 
-    private Expression parseShiftRest(Expression left, VariableType expectedType) {
+    private Expression parseShiftRest(Expression left, Type expectedType) {
         while (match(">>", "<<", ">>>")) {
             String operator = tokens.get(position - 1);
             Expression right = parseAdditive(expectedType);
@@ -288,12 +269,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseAdditive(VariableType expectedType) {
+    private Expression parseAdditive(Type expectedType) {
         Expression left = parseMultiplicative(expectedType);
         return parseAdditiveRest(left, expectedType);
     }
 
-    private Expression parseAdditiveRest(Expression left, VariableType expectedType) {
+    private Expression parseAdditiveRest(Expression left, Type expectedType) {
         while (match("+", "-")) {
             String operator = tokens.get(position - 1);
             Expression right = parseMultiplicative(expectedType);
@@ -302,12 +283,12 @@ public class Parser {
         return left;
     }
 
-    private Expression parseMultiplicative(VariableType expectedType) {
+    private Expression parseMultiplicative(Type expectedType) {
         Expression left = parseUnary(expectedType);
         return parseMultiplicativeRest(left, expectedType);
     }
 
-    private Expression parseMultiplicativeRest(Expression left, VariableType expectedType) {
+    private Expression parseMultiplicativeRest(Expression left, Type expectedType) {
         while (match("*", "/", "%")) {
             String operator = tokens.get(position - 1);
             Expression right = parseUnary(expectedType);
@@ -316,18 +297,31 @@ public class Parser {
         return left;
     }
 
-    private Expression parseUnary(VariableType expectedType) {
+    private Expression parseUnary(Type expectedType) {
         if (match("-", "!", "~")) {
             String operator = tokens.get(position - 1);
             Expression right = parseUnary(expectedType);
             return new UnaryOp(operator, right);
         }
+        // Handle type casts (byte 5, int x) ONLY when NOT followed by @
+        // (Typed dereference is handled in parsePrimary)
+        if (check("byte") || check("int") || check("long")) {
+            // Check if this is actually a typed dereference (handled in primary)
+            if (position + 1 < tokens.size() && tokens.get(position + 1).equals("@")) {
+                // This will be handled in parsePrimary, so we don't consume here
+                // Let parsePrimary handle it
+                return parsePostfix(expectedType);
+            }
+            // It's a type cast
+            Type type = parseVariableType();
+            Expression operand = parseUnary(expectedType);
+            return new TypeConversion(operand, type);
+        }
         return parsePostfix(expectedType);
     }
 
-    private Expression parsePostfix(VariableType expectedType) {
+    private Expression parsePostfix(Type expectedType) {
         Expression expr = parsePrimary(expectedType);
-
         while (true) {
             if (match("[")) {
                 // Array indexing
@@ -340,11 +334,24 @@ public class Parser {
                 break;
             }
         }
-
         return expr;
     }
 
-    private Expression parsePrimary(VariableType expectedType) {
+    private Expression parsePrimary(Type expectedType) {
+        // Handle typed dereference FIRST (byte@, int@, long@)
+        if ((check("byte") || check("int") || check("long")) &&
+                position + 1 < tokens.size() &&
+                tokens.get(position + 1).equals("@")) {
+            Type type = parseVariableType(); // consumes the type token
+            consume("@");
+            Expression address = parsePostfix(expectedType);
+            return new Dereference(address, type);
+        }
+        // Handle default dereference (@ptr) as long@ptr
+        if (match("@")) {
+            Expression address = parsePostfix(expectedType);
+            return new Dereference(address, PrimitiveType.LONG);
+        }
         if (match("(")) {
             Expression expr = parseExpression(expectedType);
             consume(")");
@@ -352,10 +359,6 @@ public class Parser {
         }
         if (match("[")) {
             return parseArrayLiteral(expectedType);
-        }
-        if (match("@")) {
-            Expression address = parsePostfix(expectedType);
-            return new Dereference(address);
         }
         if (checkTokenIsInteger()) {
             return createLiteral(Long.parseLong(consume()), expectedType);
@@ -375,10 +378,10 @@ public class Parser {
         if (checkTokenIsIdentifier()) {
             String name = consume();
             // Look up the type in the symbol table
-            VariableType actualType = symbolTable.lookup(name);
+            Type actualType = symbolTable.lookup(name);
             if (actualType == null) {
                 // If not found, use expectedType or default to LONG
-                actualType = Objects.requireNonNullElse(expectedType, VariableType.LONG);
+                actualType = Objects.requireNonNullElse(expectedType, PrimitiveType.LONG);
             }
             return new Variable(name, actualType);
         }
@@ -392,7 +395,6 @@ public class Parser {
         consume("{");
         List<Statement> thenBranch = parseBlock();
         List<Statement> elseBranch = null;
-
         if (match("else")) {
             if (match("if")) {
                 elseBranch = new ArrayList<>();
@@ -402,7 +404,6 @@ public class Parser {
                 elseBranch = parseBlock();
             }
         }
-
         return new IfStatement(condition, thenBranch, elseBranch);
     }
 
@@ -419,17 +420,14 @@ public class Parser {
         if (check("}")) {
             return new ReturnStatement(null);
         }
-
         // Parse the expression with type information from the function return type
         Expression value = parseExpression(currentFunctionReturnType);
-
         // Check if we need to convert types
-        VariableType valueType = getExpressionType(value);
+        Type valueType = getExpressionType(value);
         if (valueType != null && valueType != currentFunctionReturnType) {
             // Create a type conversion node
             value = new TypeConversion(value, currentFunctionReturnType);
         }
-
         return new ReturnStatement(value);
     }
 
@@ -444,7 +442,7 @@ public class Parser {
         return new AsmStatement(asmCode.toString());
     }
 
-    private FunctionCall parseFunctionCall(String name, VariableType expectedType) {
+    private FunctionCall parseFunctionCall(String name, Type expectedType) {
         consume("(");
         List<Expression> args = new ArrayList<>();
         if (!check(")")) {
@@ -460,15 +458,12 @@ public class Parser {
         if (charToken.length() < 3 || !charToken.startsWith("'") || !charToken.endsWith("'")) {
             throw new RuntimeException("Invalid character literal: " + charToken);
         }
-
         String content = charToken.substring(1, charToken.length() - 1);
-
         // Handle escape sequences
         if (content.startsWith("\\")) {
             if (content.length() == 1) {
                 throw new RuntimeException("Incomplete escape sequence in character literal: " + charToken);
             }
-
             char escapeChar = content.charAt(1);
             switch (escapeChar) {
                 case 'n': return '\n';
@@ -522,27 +517,42 @@ public class Parser {
         }
     }
 
-    private Expression parseArrayLiteral(VariableType expectedType) {
+    private Expression parseArrayLiteral(Type expectedType) {
         List<Expression> elements = new ArrayList<>();
-
         if (!check("]")) {
             do {
                 elements.add(parseExpression(expectedType));
             } while (match(","));
         }
-
         consume("]");
-        return new ArrayLiteral(elements);
+        return new ArrayLiteral(elements, expectedType != null ? expectedType : PrimitiveType.LONG);
     }
 
-    private VariableType parseVariableType() {
+    private Type parseVariableType() {
         String typeToken = consume();
-        return switch (typeToken.toLowerCase()) {
-            case "byte" -> VariableType.BYTE;
-            case "int" -> VariableType.INT;
-            case "long" -> VariableType.LONG;
+        Type baseType = switch (typeToken.toLowerCase()) {
+            case "byte" -> PrimitiveType.BYTE;
+            case "int" -> PrimitiveType.INT;
+            case "long" -> PrimitiveType.LONG;
             default -> throw new RuntimeException("Unknown type: " + typeToken);
         };
+
+        // Check for pointer type (e.g., "byte*")
+        if (match("*")) {
+            return new PointerType(baseType);
+        }
+
+        // Check for array type (e.g., "long[]")
+        if (match("[")) {
+            if (match("]")) {
+                // Array type is just a pointer to the base type
+                return new PointerType(baseType);
+            } else {
+                throw new RuntimeException("Expected ']' after '['");
+            }
+        }
+
+        return baseType;
     }
 
     private String consume() {
@@ -601,85 +611,77 @@ public class Parser {
     /**
      * Creates a Literal expression of the appropriate type based on the expected type
      */
-    private Expression createLiteral(long value, VariableType expectedType) {
+    private Expression createLiteral(long value, Type expectedType) {
         if (expectedType == null) {
             return Literal.ofLong(value);
         }
-
         switch (expectedType) {
-            case BYTE:
+            case PrimitiveType.BYTE:
                 if (value >= Byte.MIN_VALUE && value <= Byte.MAX_VALUE) {
                     return Literal.ofByte((byte) value);
                 }
                 break;
-            case INT:
+            case PrimitiveType.INT:
                 if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
                     return Literal.ofInt((int) value);
                 }
                 break;
-            case LONG:
+            case PrimitiveType.LONG:
                 return Literal.ofLong(value);
+            default:
+                throw new IllegalStateException("Unexpected value: " + expectedType);
         }
         throw new RuntimeException("Value " + value + " does not fit in " + expectedType);
     }
 
-    private VariableType getExpressionType(Expression expression) {
-        switch (expression) {
-            case Variable var -> {
-                return var.getType();
-            }
-            case Literal<?> lit -> {
-                // Determine type from literal value
-                if (lit.getValue() instanceof Byte) {
-                    return VariableType.BYTE;
-                } else if (lit.getValue() instanceof Integer) {
-                    return VariableType.INT;
-                } else {
-                    return VariableType.LONG;
-                }
-            }
-            case TypeConversion typeConv -> {
-                // For nested conversions, the source type is the target type of the inner conversion
-                return typeConv.getTargetType();
-            }
-            case BinaryOp binOp -> {
-                // For binary operations, assume the result type is the same as the operands
-                // (In a real compiler, you'd have more sophisticated type inference)
-                return getExpressionType(binOp.getLeft());
-            }
-            case null, default -> {
-                // Default to LONG for other expression types
-                return VariableType.LONG;
-            }
+    private Type getExpressionType(Expression expression) {
+        if (expression == null) {
+            return PrimitiveType.LONG;
         }
+        if (expression instanceof Variable var) {
+            return var.getType();
+        }
+        if (expression instanceof Literal<?> lit) {
+            return lit.getType();
+        }
+        if (expression instanceof TypeConversion typeConv) {
+            return typeConv.getTargetType();
+        }
+        if (expression instanceof BinaryOp binOp) {
+            return getExpressionType(binOp.getLeft());
+        }
+        if (expression instanceof Dereference deref) {
+            return deref.getType();
+        }
+        if (expression instanceof ArrayIndex arrayIdx) {
+            Type arrayType = getExpressionType(arrayIdx.getArray());
+            return arrayType.isPtr() ? arrayType.asPointer().getElementType() : PrimitiveType.LONG;
+        }
+        return PrimitiveType.LONG;
     }
 
     /**
      * Symbol table to track variable types across different scopes
      */
     private static class SymbolTable {
-        private final Deque<Map<String, VariableType>> scopes = new LinkedList<>();
-
+        private final Deque<Map<String, Type>> scopes = new LinkedList<>();
         public void enterScope() {
             scopes.push(new HashMap<>());
         }
-
         public void exitScope() {
             if (scopes.isEmpty()) {
                 throw new RuntimeException("Cannot exit global scope");
             }
             scopes.pop();
         }
-
-        public void define(String name, VariableType type) {
+        public void define(String name, Type type) {
             if (scopes.isEmpty()) {
                 throw new RuntimeException("No scope to define variable in");
             }
             scopes.peek().put(name, type);
         }
-
-        public VariableType lookup(String name) {
-            for (Map<String, VariableType> scope : scopes) {
+        public Type lookup(String name) {
+            for (Map<String, Type> scope : scopes) {
                 if (scope.containsKey(name)) {
                     return scope.get(name);
                 }

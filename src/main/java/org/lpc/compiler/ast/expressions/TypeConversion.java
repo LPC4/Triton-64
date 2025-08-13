@@ -2,16 +2,16 @@ package org.lpc.compiler.ast.expressions;
 
 import lombok.Getter;
 import lombok.ToString;
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.AstVisitor;
 
 @Getter
 @ToString
 public class TypeConversion implements Expression {
     private final Expression expression;
-    private final VariableType targetType;
+    private final Type targetType;
 
-    public TypeConversion(Expression expression, VariableType targetType) {
+    public TypeConversion(Expression expression, Type targetType) {
         this.expression = expression;
         this.targetType = targetType;
     }

@@ -2,16 +2,16 @@ package org.lpc.compiler.ast.expressions;
 
 import lombok.Getter;
 import lombok.ToString;
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.AstVisitor;
 
 @Getter
 @ToString
 public class Variable implements Expression {
     private final String name;
-    private final VariableType type;
+    private final Type type;
 
-    public Variable(String name, VariableType type) {
+    public Variable(String name, Type type) {
         this.name = name;
         this.type = type;
     }

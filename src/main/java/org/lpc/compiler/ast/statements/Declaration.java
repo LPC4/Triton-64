@@ -2,7 +2,7 @@ package org.lpc.compiler.ast.statements;
 
 import lombok.Getter;
 import lombok.ToString;
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.expressions.Expression;
 
@@ -11,9 +11,9 @@ import org.lpc.compiler.ast.expressions.Expression;
 public class Declaration implements Statement {
     private final String name;
     private final Expression initializer;
-    private final VariableType type;
+    private final Type type;
 
-    public Declaration(String name, Expression initializer, VariableType type) {
+    public Declaration(String name, Expression initializer, Type type) {
         this.name = name;
         this.initializer = initializer;
         this.type = type;

@@ -1,0 +1,11 @@
+
+func main(): byte {
+    var a: long = 0x20220000 ; raw ptr
+    byte@a = byte 0xFF
+    byte@(a + 1) = 0xAA
+    byte@(a + 2) = 0xBB
+
+    while(1) {}
+
+    return byte@a ; raw fetch
+}

@@ -1,6 +1,7 @@
 package org.lpc.compiler.generators;
 
-import org.lpc.compiler.ast.VariableType;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
 import org.lpc.compiler.context_managers.RegisterManager;
 
 /**
@@ -14,79 +15,94 @@ import org.lpc.compiler.context_managers.RegisterManager;
 public class TypeConversionGenerator {
     private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
-
     public TypeConversionGenerator(InstructionGenerator emitter, RegisterManager registerManager) {
         this.emitter = emitter;
         this.registerManager = registerManager;
     }
 
-    public void convert(VariableType sourceType, VariableType targetType,
+    public void convert(Type sourceType, Type targetType,
                         String sourceReg, String resultReg) {
-        if (sourceType == VariableType.BYTE) {
-            convertFromByte(targetType, sourceReg, resultReg);
-        } else if (sourceType == VariableType.INT) {
-            convertFromInt(targetType, sourceReg, resultReg);
-        } else if (sourceType == VariableType.LONG) {
-            convertFromLong(targetType, sourceReg, resultReg);
-        } else {
-            // Unknown or same type, no conversion needed
-            emitter.move(resultReg, sourceReg);
+        switch (sourceType) {
+            case PrimitiveType.BYTE -> convertFromByte(targetType, sourceReg, resultReg);
+            case PrimitiveType.INT -> convertFromInt(targetType, sourceReg, resultReg);
+            case PrimitiveType.LONG -> convertFromLong(targetType, sourceReg, resultReg);
+            default -> {
+                // All pointers are stored as 64-bit values - pointer-to-pointer conversions are no-ops
+                emitter.move(resultReg, sourceReg);
+            }
         }
     }
 
-    private void convertFromByte(VariableType targetType, String sourceReg, String resultReg) {
+    private void convertFromByte(Type targetType, String sourceReg, String resultReg) {
         switch (targetType) {
-            case INT -> {
+            case PrimitiveType.INT  -> {
                 emitter.comment("Converting BYTE to INT (sign extend 8→32)");
                 emitter.shiftLeft(resultReg, sourceReg, "24");
                 emitter.shiftArithmeticRight(resultReg, resultReg, "24");
             }
-            case LONG -> {
+            case PrimitiveType.LONG -> {
                 emitter.comment("Converting BYTE to LONG (sign extend 8→64)");
                 emitter.shiftLeft(resultReg, sourceReg, "56");
                 emitter.shiftArithmeticRight(resultReg, resultReg, "56");
             }
             default -> {
-                emitter.comment("BYTE to BYTE (no-op)");
-                emitter.move(resultReg, sourceReg);
+                if (targetType.isPtr()) {
+                    emitter.comment("Converting BYTE to POINTER (sign extend 8→64)");
+                    emitter.shiftLeft(resultReg, sourceReg, "56");
+                    emitter.shiftArithmeticRight(resultReg, resultReg, "56");
+                } else {
+                    emitter.comment("BYTE to BYTE (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                }
             }
         }
     }
 
-    private void convertFromInt(VariableType targetType, String sourceReg, String resultReg) {
+    private void convertFromInt(Type targetType, String sourceReg, String resultReg) {
         switch (targetType) {
-            case LONG -> {
+            case PrimitiveType.LONG -> {
                 emitter.comment("Converting INT to LONG (sign extend 32→64)");
                 emitter.shiftLeft(resultReg, sourceReg, "32");
                 emitter.shiftArithmeticRight(resultReg, resultReg, "32");
             }
-            case BYTE -> {
+            case PrimitiveType.BYTE -> {
                 emitter.comment("Converting INT to BYTE (truncate 32→8 and sign-extend to 64)");
                 truncateWithMask(sourceReg, resultReg, 0xFF);
                 signExtendByteToLong(resultReg);
             }
             default -> {
-                emitter.comment("INT to INT (no-op)");
-                emitter.move(resultReg, sourceReg);
+                if (targetType.isPtr()) {
+                    emitter.comment("Converting INT to POINTER (sign extend 32→64)");
+                    emitter.shiftLeft(resultReg, sourceReg, "32");
+                    emitter.shiftArithmeticRight(resultReg, resultReg, "32");
+                } else {
+                    emitter.comment("INT to INT (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                }
             }
         }
     }
 
-    private void convertFromLong(VariableType targetType, String sourceReg, String resultReg) {
+    private void convertFromLong(Type targetType, String sourceReg, String resultReg) {
         switch (targetType) {
-            case BYTE -> {
+            case PrimitiveType.BYTE -> {
                 emitter.comment("Converting LONG to BYTE (truncate 64→8 and sign-extend to 64)");
                 truncateWithMask(sourceReg, resultReg, 0xFF);
                 signExtendByteToLong(resultReg);
             }
-            case INT -> {
+            case PrimitiveType.INT -> {
                 emitter.comment("Converting LONG to INT (truncate 64→32 and sign-extend to 64)");
                 truncateWithMask(sourceReg, resultReg, 0xFFFFFFFFL);
                 signExtendIntToLong(resultReg);
             }
             default -> {
-                emitter.comment("LONG to LONG (no-op)");
-                emitter.move(resultReg, sourceReg);
+                if (targetType.isPtr()) {
+                    emitter.comment("Converting LONG to POINTER (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                } else {
+                    emitter.comment("LONG to LONG (no-op)");
+                    emitter.move(resultReg, sourceReg);
+                }
             }
         }
     }
