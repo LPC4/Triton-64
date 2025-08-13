@@ -11,9 +11,11 @@ func main(): byte {
     p[1] = 0xAA                 ; store at next byte
     var x: byte = p[1]          ; load
 
-    var arr: long[] = malloc(32) ; array of longs, same as a long* but just for clarity
-    @arr = [1,2,3,4]             ; store array literal
+    var arr: int[] = malloc(32)  ; array of ints, same as a int* but just for clarity
+    @arr = [1,2,3,4]             ; store array literal, should be 4 ints
     arr[2] = 0xDE                ; store 3rd element
+    var y = @arr                 ; should be an int (= arr[0])
+    arr[4] = y                   ; store 5th element
 
     while (1) {}  ; infinite loop, just to keep the program running
 }

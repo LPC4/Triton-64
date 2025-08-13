@@ -1772,20 +1772,21 @@ get_heap_stats_end_71:
     ; Function: main
     ; ======================================
 main:
-    ; Pre-allocating 5 local variables
+    ; Pre-allocating 6 local variables
     ; Pre-allocated variable: raw (LONG)
     ; Pre-allocated variable: x (BYTE)
     ; Pre-allocated variable: p (PointerType[elementType=BYTE])
     ; Pre-allocated variable: x (BYTE)
-    ; Pre-allocated variable: arr (PointerType[elementType=LONG])
+    ; Pre-allocated variable: arr (PointerType[elementType=INT])
+    ; Pre-allocated variable: y (LONG)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
-    ; Total frame size: 32 bytes
-    LDI t0, 32
+    ; Total frame size: 40 bytes
+    LDI t0, 40
     SUB sp, sp, t0
-    ; Allocated 32 bytes for stack frame
+    ; Allocated 40 bytes for stack frame
     ; Declaration: raw
     ; Function call: malloc
     ; Preparing function call: malloc
@@ -1884,29 +1885,49 @@ main:
     LDI t0, 0
     ADD t2, t1, t0
     LDI t3, 1
-    ST t2, t3
-    LDI t0, 8
+    SI t2, t3
+    LDI t0, 4
     ADD t2, t1, t0
     LDI t3, 2
-    ST t2, t3
-    LDI t0, 16
+    SI t2, t3
+    LDI t0, 8
     ADD t2, t1, t0
     LDI t3, 3
-    ST t2, t3
-    LDI t0, 24
+    SI t2, t3
+    LDI t0, 12
     ADD t2, t1, t0
     LDI t3, 4
-    ST t2, t3
+    SI t2, t3
     LDI t0, -25
     ADD t0, fp, t0
     LD t1, t0
     LDI t0, 2
     LDI t2, 222
     ; Array index assignment
-    LDI t3, 8
+    LDI t3, 4
     MUL t3, t0, t3
     ADD t4, t1, t3
-    ST t4, t2
+    SI t4, t2
+    ; Declaration: y
+    LDI t0, -25
+    ADD t0, fp, t0
+    LD t1, t0
+    LD t0, t1
+    LDI t1, -33
+    ADD t1, fp, t1
+    ST t1, t0
+    LDI t0, -25
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t0, 5
+    LDI t2, -33
+    ADD t2, fp, t2
+    LD t3, t2
+    ; Array index assignment
+    LDI t2, 4
+    MUL t2, t0, t2
+    ADD t4, t1, t2
+    SI t4, t3
     ; While loop
 loop_75:
     LDI t0, 1
@@ -1915,9 +1936,9 @@ loop_75:
 endloop_76:
     ; Function epilogue
 main_end_74:
-    LDI t0, 32
+    LDI t0, 40
     ADD sp, sp, t0
-    ; Deallocated 32 bytes for frame
+    ; Deallocated 40 bytes for frame
     POP fp
     POP ra
     JMP ra                               ; Return from function

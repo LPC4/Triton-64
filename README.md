@@ -7,7 +7,7 @@ A complete 64-bit virtual machine implementation featuring a custom CPU architec
 The Triton-64 VM is a comprehensive virtual machine system that includes:
 
 - **Custom 64-bit CPU Architecture**: Complete instruction set with 32 registers
-- **TriC Programming Language + Compiler**: High-level language that compiles to Triton-64 assembly
+- **TriC Programming Language + Compiler**: High-level language with optional typing that compiles to Triton-64 assembly
 - **Assembler**: Converts assembly code to machine code with macro expansion
 - **Memory Management**: Sophisticated memory mapping with ROM, RAM, MMIO, and framebuffer regions
 - **Visual Debugging Tools**: Real-time CPU and memory viewers
@@ -132,35 +132,102 @@ SUB r0, r1, 100    ; Subtract immediate
 
 ## TriC Programming Language
 
-TriC is a high-level programming language designed specifically for the Triton-64 Virtual Machine. It provides a more accessible way to write programs for the VM compared to writing raw assembly code. TriC supports modern programming constructs while being mindful of the underlying VM architecture.
+TriC is a high-level programming language designed specifically for the Triton-64 Virtual Machine. It provides a more accessible way to write programs for the VM compared to writing raw assembly code. TriC features a C-like syntax with optional type annotations that primarily affect memory access sizes rather than enforcing type safety.
+
+### Type System
+
+TriC features an optional type system where types mainly guide memory access operations. Unlike strongly-typed languages, TriC allows implicit conversions between all types and does not enforce type safety.
+
+#### Primitive Types
+
+| Type | Size (bytes) | Description |
+|------|--------------|-------------|
+| `byte` | 1 | 8-bit value |
+| `int` | 4 | 32-bit value |
+| `long` | 8 | 64-bit value (default type for untyped variables) |
+
+#### Composite Types
+
+- **Pointer Types**: `byte*`, `int*`, `long*` (pointers to specific types)
+- **Array Types**: `int[]`, `byte[]`, etc. (alternative for pointers)
+- **Function Types**: Defined by return type and parameter types
 
 ### Language Features
 
-- **Variables**: Declare and use variables with automatic stack management. Currently, only integer types are supported.
-- **Functions**: Define functions with parameters and return values, following the Triton-64 calling convention.
-- **Control Flow**: Use `if-else` statements and `while` loops for conditional and repetitive execution.
-- **Expressions**: Write complex expressions with arithmetic, logical, and comparison operators.
-- **Function Calls**: Call functions with up to 7 arguments, adhering to the register-based calling convention.
-- **Dereferencing**: Access memory locations using pointers (@ keyword).
-- **Inline Assembly**: Embed raw assembly code within TriC programs for low-level operations.
+- **Optional Typing**: Variables can be declared with or without types (default is `long`)
+- **Implicit Conversions**: All types can be implicitly converted to any other type
+- **Pointer Arithmetic**: Direct memory access with pointer operations
+- **Array Syntax**: Arrays are just a different syntax for pointer arithmetic
+- **Variables**: Declare and use variables with automatic stack management
+- **Functions**: Define functions with parameters and return values
+- **Control Flow**: Use `if-else` statements and `while` loops
+- **Expressions**: Write complex expressions with arithmetic and logical operators
+- **Unlimited Arguments**: Function calls can have any number of arguments (first 7 in registers, rest on stack)
+- **Dereferencing**: Access memory locations using the `@` operator
+- **Inline Assembly**: Embed raw assembly code within TriC programs
 
 ### Syntax Examples
 
-Here are some snippets demonstrating TriC's syntax:
-
-#### Variable Declaration and Assignment
+#### Type Declarations and Variables
 
 ```tric
-var x = 10
-var y = 20
-var sum = x + y
+var x = 10        ; Untyped (defaults to long)
+var y: int = 20   ; Typed as int
+var z: byte = 30  ; Typed as byte
+
+var sum = x + y   ; Implicit conversion between types
+```
+
+#### Pointer Operations
+
+```tric
+var raw = malloc(16)     ; Raw pointer (address stored as long)
+int@(raw + 1) = 0xAAAA   ; Store int at offset 1
+var value = int@(raw + 1); Load int from offset 1
+
+var p: byte* = malloc(4); Typed pointer
+@p = 0xFF                ; Store byte
+p[1] = 0xAA              ; Store next byte (equivalent to byte@(p + 1))
+var b = p[1]             ; Load byte
+```
+
+#### Array Syntax
+
+```tric
+var arr: int[] = malloc(32)  ; Array of ints (same as int*)
+@arr = [1, 2, 3, 4]          ; Store array literal
+arr[2] = 0xDE                ; Store 3rd element (equivalent to int@(arr + 8))
+var y = @arr                 ; Load first element (equivalent to int@arr)
+arr[4] = y                   ; Store 5th element
+```
+
+#### Global Variables
+
+```tric
+global g: byte = 67  ; Global variable
+
+func main() {
+    var b = 1
+    var i: int = 42
+    var l = -1
+    
+    var r = b + g    ; Implicit conversion from byte to long
+    r = add1(r)
+    
+    return r
+}
+
+func add1(a) {
+    var r = a + 1    ; All operations work with implicit conversions
+    return r
+}
 ```
 
 #### Function Definition
 
 ```tric
-func add(a, b) {
-    return a + b
+func add(a: int, b: int) {
+    return a + b      ; Implicit conversion to return type (long by default)
 }
 ```
 
@@ -183,56 +250,126 @@ while (i < 10) {
 }
 ```
 
-#### Function Call
+#### Function Call with Many Arguments
 
 ```tric
-var result = add(5, 3)
+var result = functionWithManyArgs(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
 ```
 
-For a more comprehensive example, see the Example TriC Program below.
+### Type System Characteristics
+
+TriC's type system has several important characteristics to understand:
+
+- **Implicit Conversions**: All types can be implicitly converted to any other type
+  ```tric
+  var b: byte = 10
+  var i = b             ; b is implicitly converted to long
+  var b2: byte = i      ; i is implicitly converted to byte (potential data loss)
+  ```
+
+- **Array Types Are Pointers**: Array types are purely syntactic sugar
+  ```tric
+  var arr: int[] = malloc(32)
+  ; This is equivalent to:
+  var arr: int* = malloc(32)
+  ```
+
+- **No Bounds Checking**: Array indexing has no bounds checking
+  ```tric
+  var arr: byte[] = malloc(4)
+  arr[100] = 0xAA  ; This will write to memory beyond the allocated region
+  ```
+
+- **No Pointer Safety**: Any pointer can be dereferenced as any type
+  ```tric
+  var p: int* = malloc(8)
+  p[0] = 42
+  byte@p = 0xAA  ; This is allowed, even though p was declared as int*
+  ```
+
+- **Type Annotations Affect Memory Access**: Types determine the size of memory operations
+  ```tric
+  var p = malloc(8)
+  int@p = 0x12345678  ; 4-byte store
+  long@p = 0x12345678 ; 8-byte store (overwrites more memory)
+  ```
+
+- **Untyped Variables Default to Long**: Variables without type annotations are treated as `long`
+  ```tric
+  var x = 10  ; x is a long (64-bit)
+  ```
 
 ### Compiler Overview
 
-The Tri-C compiler is responsible for translating TriC source code into Triton-64 assembly code. It consists of several components:
+The Tri-C compiler translates TriC source code into Triton-64 assembly code. It consists of several components:
 
-- **Lexer**: Breaks the source code into tokens.
-- **Parser**: Analyzes the tokens to build an Abstract Syntax Tree (AST) representing the program's structure.
-- **Code Generator**: Traverses the AST to generate corresponding assembly code, handling register allocation, stack management, and control flow.
+- **Lexer**: Breaks the source code into tokens
+- **Parser**: Analyzes the tokens to build an Abstract Syntax Tree (AST)
+- **Code Generator**: Traverses the AST to generate assembly code
 
-The compiler is designed to produce efficient assembly code while maintaining readability and debuggability.
+Key aspects of the compiler:
+
+- **Type Handling**: Uses type annotations to determine memory access sizes, but doesn't enforce type safety
+- **Implicit Conversions**: Generates code for all implicit type conversions
+- **Register Management**: Efficient allocation of temporary registers
+- **Stack Management**: Handles stack frames for functions and local variables
+- **Function Calling**: Supports unlimited function arguments (first 7 in registers, rest on stack)
+
+The compiler is designed to be flexible and permissive, allowing the programmer low-level control at the expense of safety.
+
+### Memory Management
+
+TriC provides memory management through:
+
+- **Heap Allocation**: `malloc(size)` returns a pointer to newly allocated memory
+- **Stack Allocation**: Local variables are automatically allocated on the stack
+- **Type-aware Memory Access**: Type annotations determine the size of memory operations
+
+The compiler handles stack frame management, including:
+- Variable storage on the stack
+- Parameter passing for function calls
+- Return value handling
 
 ### Integration with Triton-64 VM
 
-TriC programs are compiled to assembly code, which can then be assembled and run on the Triton-64 VM. The compiler ensures that the generated code adheres to the VM's architecture, including register usage and memory management.
+TriC programs are compiled to assembly code, which can then be assembled and run on the Triton-64 VM. The compiler ensures that the generated code adheres to the VM's architecture.
 
-When writing TriC programs, developers should be aware of the following:
+When writing TriC programs, developers should be aware of:
 
-- Variables are stored on the stack, with automatic management of stack frames for functions.
-- Functions use the `ra` register for return addresses and `a0` for return values.
-- The stack pointer (`sp`) and frame pointer (`fp`) are managed according to the VM's conventions.
+- Untyped variables default to `long` (64-bit)
+- Type annotations affect memory access sizes but don't enforce safety
+- Arrays are just pointers with different syntax
+- Function calls can have unlimited arguments
+- All type conversions happen implicitly
+- No array bounds checking
+- No pointer safety
 
 ### Development and Debugging
 
 While developing TriC programs, you can leverage the VM's debugging tools:
 
-- **CPU Viewer**: Monitor register states and program counter during execution.
-- **Memory Viewer**: Inspect memory contents, including the stack and heap.
+- **CPU Viewer**: Monitor register states and program counter
+- **Memory Viewer**: Inspect memory contents
+- **Type Information**: View how types affect memory operations
 
-Additionally, the compiler can generate debug information to map assembly instructions back to TriC source code lines, aiding in debugging.
+The debugging tools help identify issues that might arise from implicit conversions or unsafe memory operations.
 
 ### Example TriC Program
 
-Below is a complete TriC program that demonstrates various language features:
+Below is a complete TriC program that demonstrates the language's features:
 
 ```tric
 ; Triton-C Feature Showcase
-; Demonstrates variables, functions, control flow, and arithmetic
+; Demonstrates variables, functions, control flow, and memory operations
+
+global counter = 0
+global framebuffer = 0x20220000
 
 ; Main program
 func main() {
-    ; Variable declarations
+    ; Variable declarations with and without types
     var x = 5
-    var y = 10
+    var y: int = 10
     var z = 0
 
     ; If-else demonstration
@@ -243,42 +380,49 @@ func main() {
     }
 
     ; While loop demonstration
-    var counter = 0
-    while (counter < 5) {
-        counter = counter + 1
+    var i = 0
+    while (i < 5) {
+        i = i + 1
     }
 
     ; Function calls
     var fact = factorial(5)  ; 120
 
-    ; Arithmetic operations
-    var sum = x + y
-    var product = x * y
-    var factorial = factorial(4)  ; 24
-    
     ; Memory operations
-    var a = -1 ; test value
-    var fb_start = 0x20220000
-    var fb_size  = 0x10000 ; 64 KiB frame buffer size
+    var raw = malloc(16)     ; raw pointer
+    int@(raw + 1) = 0xAAAA   ; store int at offset 1
+    var value = int@(raw + 1); load int from offset 1
 
-    @fb_start = a      ; store the value 0xDEADBEEF at the address stored in a, which is 539099136
+    var p: byte* = malloc(4); typed pointer
+    @p = 0xFF                ; store byte
+    p[1] = 0xAA              ; store next byte
+    var b = p[1]             ; load byte
 
-    var offset = fb_start;
-    var i = 0
+    var arr: int[] = malloc(32)  ; array of ints
+    @arr = [1, 2, 3, 4]          ; store array literal
+    arr[2] = 0xDE                ; store 3rd element
+    var first = @arr             ; load first element
+    arr[4] = first               ; store 5th element
 
-    while (i < 100) {
-        a = a - 1
-        while (offset < fb_size + fb_start) {
-            @offset = a             ; store the value 0xDEADBEEF at the address fb_start + offset
-            offset = offset + 8     ; increment offset by 4 bytes
-        }
-        offset = fb_start ; reset offset to the start of the frame buffer
-        i = i + 1
+    ; Framebuffer manipulation
+    var fb: byte* = framebuffer
+    var j = 0
+    while (j < 100) {
+        fb[j] = counter      ; store byte in framebuffer
+        counter = counter + 1
+        j = j + 1
     }
 
-
+    ; Function with many arguments
+    var result = manyArgs(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+    
     ; Return the total of all operations
-    return sum + product + fact + z  ; 15 + 50 + 120 + 5 = 190 stored in a0
+    return z + fact + first
+}
+
+; Function with unlimited arguments
+func manyArgs(a, b, c, d, e, f, g, h, i, j) {
+    return a + b + c + d + e + f + g + h + i + j
 }
 
 ; Function with return value
@@ -291,7 +435,7 @@ func factorial(n) {
 }
 ```
 
-This program showcases variable usage, control flow, function definitions, recursive function calls and memory operations. After execution, the result (190) is stored in the `a0` register.
+This program showcases variable typing (or lack thereof), pointer operations, array syntax, global variables, and unlimited function arguments.
 
 ## System Components
 
@@ -310,20 +454,21 @@ Key features:
 
 ### Compiler (`org.lpc.compiler.TriCCompiler`)
 
-The Tri-C compiler is a crucial component that translates TriC source code into Triton-64 assembly. It follows a standard compilation pipeline:
+The Tri-C compiler translates TriC source code into Triton-64 assembly. It follows a compilation pipeline:
 
-1. **Lexical Analysis (**`Lexer`**)**: Converts the source code into a stream of tokens.
-2. **Parsing (**`Parser`**)**: Constructs an Abstract Syntax Tree (AST) from the tokens, validating the syntax.
-3. **Code Generation (**`CodeGenerator`**)**: Walks the AST to emit assembly code, managing registers, stack frames, and control flow.
+1. **Linking**: (**`Linker`**)**: Combines multiple assembly files into a single executable
+2. **Lexical Analysis (**`Lexer`**)**: Converts source code into tokens
+3. **Parsing (**`Parser`**)**: Constructs an Abstract Syntax Tree (AST)
+4. **Code Generation (**`CodeGenerator`**)**: Walks the AST to emit assembly code
 
-Key features of the compiler include:
+Key features of the compiler:
 
-- **Register Management**: Efficient allocation and deallocation of temporary registers.
-- **Stack Management**: Automatic handling of stack frames for functions and local variables.
-- **Control Flow Generation**: Proper generation of jumps and labels for `if-else` and `while` statements.
-- **Function Handling**: Support for function calls with parameter passing and return values.
-
-The compiler is designed to be modular, with each component responsible for a specific phase of compilation, making it easier to maintain and extend.
+- **Optional Type Handling**: Uses type annotations for memory access sizing
+- **Implicit Conversions**: Handles all type conversions automatically
+- **Register Management**: Efficient allocation of temporary registers
+- **Stack Management**: Handles stack frames for functions
+- **Unlimited Arguments**: Supports any number of function arguments
+- **Memory Operations**: Generates appropriate load/store instructions based on types
 
 ### Memory System (`org.lpc.memory.Memory`)
 
@@ -361,6 +506,14 @@ The system includes JavaFX-based debugging tools:
 - Address-based navigation
 - Real-time memory updates
 
+#### Text Mode Viewer (`org.lpc.visual.TextModeViewer`)
+
+- Visualizes the framebuffer as text characters
+
+#### Pixel Mode Viewer (`org.lpc.visual.PixelModeViewer`)
+
+- Visualizes the framebuffer as pixels
+
 ### ROM Development (`org.lpc.rom.RomDumper`)
 
 The ROM system allows bootable code development:
@@ -368,55 +521,6 @@ The ROM system allows bootable code development:
 1. Write assembly code in `rom.asm`
 2. Run `RomDumper` to generate `ROMData.java`
 3. Boot ROM code executes automatically on VM startup
-
-## Project Structure
-
-```
-org.lpc/
-├── Main.java                           # Application entry point
-├── assembler/
-│   ├── Assembler.java                  # Main assembler with pseudo-instruction support
-│   ├── Expander.java                   # Pseudo-instruction expansion engine
-│   ├── Parser.java                     # Assembly syntax parsing
-│   ├── Preprocessor.java               # Source code preprocessing
-│   └── SymbolTable.java                # Label and symbol management
-├── compiler/
-│   ├── TriCCompiler.java               # Main compiler interface
-│   ├── Lexer.java                      # Tokenization
-│   ├── Parser.java                     # AST generation
-│   ├── CodeGenerator.java              # Assembly emission
-│   ├── CodeGenContext.java             # Context for code generation
-│   ├── codegen/                        # Code generation utilities
-│   │   ├── FunctionManager.java        # Manages function generation and calling conventions
-│   │   ├── StackManager.java           # Handles stack operations and variable storage
-│   │   ├── InstructionEmitter.java     # Emits assembly instructions
-│   │   ├── RegisterManager.java        # Manages register allocation
-│   │   ├── CodeGenContext.java         # Manages asm context during code generation
-│   │   └── ConditionalGenerator.java   # Generates conditional control flow
-│   └── ast/                            # Abstract syntax tree nodes
-├── cpu/
-│   ├── Cpu.java                        # CPU core implementation
-│   ├── InstructionSet.java             # ISA definition and encoding
-│   ├── InstructionInfo.java            # Instruction metadata
-│   └── RegisterInfo.java               # Register naming and aliases
-├── io/
-│   ├── IODeviceManager.java            # Manages I/O devices
-│   ├── IODevice.java                   # Interface for I/O devices
-│   └── devices/                        # Device-specific implementations
-├── memory/
-│   ├── Memory.java                     # Memory management system
-│   └── MemoryMap.java                  # Address space layout
-├── rom/
-│   ├── RomDumper.java                  # ROM generation utility
-│   └── ROMData.java                    # Generated ROM data (auto-generated)
-└── visual/
-    ├── CpuViewer.java                  # CPU state visualization
-    ├── MemoryViewer.java               # Memory dump visualization
-    ├── MemoryPrinter.java              # Memory content printing
-    ├── TextModeViewer.java             # Visualiser for framebuffer interpreted as text
-    ├── PixelModeViewer.java            # Visualiser for framebuffer interpreted as pixels
-    └── style/                          # Styles for visual components
-```
 
 ## Usage Examples
 
@@ -477,6 +581,14 @@ function_addr:
 - **Temporary Register Management**: Automatic use of temps for complex operations
 - **Symbol Resolution**: Forward and backward label references
 
+### Type System Features
+
+- **Optional Typing**: Types are hints for memory access sizes
+- **Implicit Conversions**: All types can be implicitly converted
+- **Array-Pointer Equivalence**: Array types are syntactic sugar for pointers
+- **Unlimited Function Arguments**: First 7 arguments in registers, rest on stack
+- **No Safety Checks**: No array bounds checking or pointer safety
+
 ### Debugging Support
 
 - **Real-time Visualization**: Live updates of CPU and memory state
@@ -502,15 +614,25 @@ Instructions use a 32-bit fixed-width format:
 - **SRC2**: 5-bit source register 2
 - **IMM**: 10-bit signed immediate value
 
+### Memory Access Instructions
+
+The VM supports type-specific memory operations:
+
+- **Byte Access**: `LB`, `SB` for 8-bit operations
+- **Int Access**: `LI`, `SI` for 32-bit operations
+- **Long Access**: `LD`, `ST` for 64-bit operations
+
+These instructions ensure proper memory alignment and access sizes based on the type annotations in TriC code.
+
 ## License and Credits
 
 This project demonstrates advanced virtual machine architecture concepts including:
 
 - Custom instruction set design
 - Multi-pass assembler implementation
-- High-level language compilation
+- High-level language compilation with optional typing
 - Memory management systems
 - Visual debugging interfaces
 - ROM-based system initialization
 
-The Triton-64 VM serves as both an educational tool and a practical platform for systems programming experimentation.
+The Triton-64 VM serves as both an educational tool and a practical platform for systems programming experimentation, providing low-level control with the convenience of a high-level language syntax. The optional type system offers flexibility for both high-level abstractions and low-level memory manipulation.
