@@ -17,5 +17,5 @@ func main(): byte {
     var y = @arr                 ; should be an int (= arr[0])
     arr[4] = y                   ; store 5th element
 
-    while (1) {}  ; infinite loop, just to keep the program running
+    while (1) {}
 }

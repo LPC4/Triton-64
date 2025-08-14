@@ -7,7 +7,7 @@ import org.lpc.compiler.ast.AstVisitor;
 @Getter
 @ToString
 public class UnaryOp implements Expression {
-    public enum Op { NEG, NOT }
+    public enum Op { NEG, NOT, BIN_NOT }
     private final Op op;
     private final Expression operand;
 
@@ -24,6 +24,7 @@ public class UnaryOp implements Expression {
         return switch (op) {
             case "-" -> Op.NEG;
             case "~" -> Op.NOT;
+            case "!" -> Op.BIN_NOT;
             default -> throw new IllegalArgumentException("Unknown unary operator: " + op);
         };
     }

@@ -2,6 +2,7 @@ package org.lpc.compiler.ast.expressions;
 
 import lombok.Getter;
 import lombok.ToString;
+import org.lpc.compiler.types.PointerType;
 import org.lpc.compiler.types.PrimitiveType;
 import org.lpc.compiler.types.Type;
 import org.lpc.compiler.ast.AstVisitor;

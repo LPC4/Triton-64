@@ -1773,172 +1773,244 @@ get_heap_stats_end_71:
     ; ======================================
 main:
     ; Pre-allocating 6 local variables
-    ; Pre-allocated variable: raw (LONG)
-    ; Pre-allocated variable: x (BYTE)
-    ; Pre-allocated variable: p (PointerType[elementType=BYTE])
-    ; Pre-allocated variable: x (BYTE)
-    ; Pre-allocated variable: arr (PointerType[elementType=INT])
-    ; Pre-allocated variable: y (LONG)
+    ; Pre-allocated variable: arr2d (PointerType[elementType=PointerType[elementType=LONG]])
+    ; Pre-allocated variable: arr1 (PointerType[elementType=LONG])
+    ; Pre-allocated variable: arr2 (PointerType[elementType=LONG])
+    ; Pre-allocated variable: sum (INT)
+    ; Pre-allocated variable: i (BYTE)
+    ; Pre-allocated variable: j (BYTE)
     ; Function prologue
     PUSH ra
     PUSH fp
     MOV fp, sp
-    ; Total frame size: 40 bytes
-    LDI t0, 40
+    ; Total frame size: 32 bytes
+    LDI t0, 32
     SUB sp, sp, t0
-    ; Allocated 40 bytes for stack frame
-    ; Declaration: raw
-    ; Function call: malloc
-    ; Preparing function call: malloc
+    ; Allocated 32 bytes for stack frame
+    ; Declaration: arr2d
+    ; Function call: calloc
+    ; Preparing function call: calloc
     ; Evaluating argument 0
-    LDI t0, 16
+    LDI t0, 3
+    ; Evaluating argument 1
+    LDI t1, 8
+    PUSH t1
     PUSH t0
-    JAL malloc, ra
-    LDI t0, 8
+    JAL calloc, ra
+    LDI t0, 16
     ADD sp, sp, t0
-    ; Cleaned up 1 arguments from stack
+    ; Cleaned up 2 arguments from stack
     MOV t0, a0
     LDI t1, -8
     ADD t1, fp, t1
     ST t1, t0
-    ; Binary operation: ADD
-    LDI t0, -8
-    ADD t0, fp, t0
-    LD t1, t0
-    LDI t0, 1
-    ADD t2, t1, t0
-    LDI t0, 43690
-    ; Store INT to address t2
-    SI t2, t0
-    ; Declaration: x
-    ; Binary operation: ADD
-    LDI t0, -8
-    ADD t0, fp, t0
-    LD t1, t0
-    LDI t0, 1
-    ADD t2, t1, t0
-    LB t0, t2
-    LDI t1, -9
-    ADD t1, fp, t1
-    SB t1, t0
-    ; Declaration: p
-    ; Function call: malloc
-    ; Preparing function call: malloc
+    ; Declaration: arr1
+    ; Function call: calloc
+    ; Preparing function call: calloc
     ; Evaluating argument 0
-    LDI t0, 4
+    LDI t0, 3
+    ; Evaluating argument 1
+    LDI t1, 8
+    PUSH t1
     PUSH t0
-    JAL malloc, ra
-    LDI t0, 8
+    JAL calloc, ra
+    LDI t0, 16
     ADD sp, sp, t0
-    ; Cleaned up 1 arguments from stack
+    ; Cleaned up 2 arguments from stack
     MOV t0, a0
-    LDI t1, -17
+    LDI t1, -16
     ADD t1, fp, t1
     ST t1, t0
-    LDI t0, -17
-    ADD t0, fp, t0
-    LD t1, t0
-    LDI t0, 255
-    ; Store LONG to address t1
-    ST t1, t0
-    LDI t0, -17
-    ADD t0, fp, t0
-    LD t1, t0
-    LDI t0, 1
-    LDI t2, 170
-    ; Array index assignment
-    LDI t3, 1
-    MUL t3, t0, t3
-    ADD t4, t1, t3
-    SB t4, t2
-    ; Declaration: x
-    ; Array indexing
-    LDI t0, -17
-    ADD t0, fp, t0
-    LD t1, t0
-    LDI t0, 1
-    LDI t2, 1
-    MUL t2, t0, t2
-    ADD t3, t1, t2
-    LB t4, t3
-    LDI t0, -9
-    ADD t0, fp, t0
-    SB t0, t4
-    ; Declaration: arr
-    ; Function call: malloc
-    ; Preparing function call: malloc
+    ; Declaration: arr2
+    ; Function call: calloc
+    ; Preparing function call: calloc
     ; Evaluating argument 0
-    LDI t0, 32
+    LDI t0, 3
+    ; Evaluating argument 1
+    LDI t1, 8
+    PUSH t1
     PUSH t0
-    JAL malloc, ra
-    LDI t0, 8
+    JAL calloc, ra
+    LDI t0, 16
     ADD sp, sp, t0
-    ; Cleaned up 1 arguments from stack
+    ; Cleaned up 2 arguments from stack
     MOV t0, a0
-    LDI t1, -25
+    LDI t1, -24
     ADD t1, fp, t1
     ST t1, t0
-    LDI t0, -25
+    LDI t0, -16
     ADD t0, fp, t0
     LD t1, t0
     ; Storing array literal to memory at t1
     LDI t0, 0
     ADD t2, t1, t0
     LDI t3, 1
-    SI t2, t3
-    LDI t0, 4
-    ADD t2, t1, t0
-    LDI t3, 2
-    SI t2, t3
+    ST t2, t3
     LDI t0, 8
     ADD t2, t1, t0
+    LDI t3, 2
+    ST t2, t3
+    LDI t0, 16
+    ADD t2, t1, t0
     LDI t3, 3
-    SI t2, t3
-    LDI t0, 12
+    ST t2, t3
+    LDI t0, -24
+    ADD t0, fp, t0
+    LD t1, t0
+    ; Storing array literal to memory at t1
+    LDI t0, 0
     ADD t2, t1, t0
     LDI t3, 4
-    SI t2, t3
-    LDI t0, -25
+    ST t2, t3
+    LDI t0, 8
+    ADD t2, t1, t0
+    LDI t3, 5
+    ST t2, t3
+    LDI t0, 16
+    ADD t2, t1, t0
+    LDI t3, 6
+    ST t2, t3
+    LDI t0, -8
     ADD t0, fp, t0
     LD t1, t0
-    LDI t0, 2
-    LDI t2, 222
-    ; Array index assignment
-    LDI t3, 4
-    MUL t3, t0, t3
-    ADD t4, t1, t3
-    SI t4, t2
-    ; Declaration: y
-    LDI t0, -25
-    ADD t0, fp, t0
-    LD t1, t0
-    LD t0, t1
-    LDI t1, -33
+    ; Storing array literal to memory at t1
+    LDI t0, 0
+    ADD t2, t1, t0
+    LDI t3, -16
+    ADD t3, fp, t3
+    LD t4, t3
+    ST t2, t4
+    LDI t0, 8
+    ADD t2, t1, t0
+    LDI t3, -24
+    ADD t3, fp, t3
+    LD t4, t3
+    ST t2, t4
+    LDI t0, 16
+    ADD t2, t1, t0
+    LDI t3, -16
+    ADD t3, fp, t3
+    LD t4, t3
+    ST t2, t4
+    ; Declaration: sum
+    LDI t0, 0
+    LDI t1, -28
     ADD t1, fp, t1
-    ST t1, t0
-    LDI t0, -25
-    ADD t0, fp, t0
-    LD t1, t0
-    LDI t0, 5
-    LDI t2, -33
-    ADD t2, fp, t2
-    LD t3, t2
-    ; Array index assignment
-    LDI t2, 4
-    MUL t2, t0, t2
-    ADD t4, t1, t2
-    SI t4, t3
+    SI t1, t0
+    ; Declaration: i
+    LDI t0, 0
+    LDI t1, -29
+    ADD t1, fp, t1
+    SB t1, t0
     ; While loop
 loop_75:
+    ; Comparison: Variable(name=i, type=BYTE) LT Literal(value=3, type=LONG)
+    LDI t0, -29
+    ADD t0, fp, t0
+    LB t1, t0
+    LDI t0, 3
+    SUB t2, t1, t0
+    ; Jump if t1 >= t0
+    JPN skip_ge_77, t2
+    JMP endloop_76
+skip_ge_77:
+    ; Declaration: j
+    LDI t0, 0
+    LDI t1, -30
+    ADD t1, fp, t1
+    SB t1, t0
+    ; While loop
+loop_78:
+    ; Comparison: Variable(name=j, type=BYTE) LT Literal(value=3, type=LONG)
+    LDI t0, -30
+    ADD t0, fp, t0
+    LB t1, t0
+    LDI t0, 3
+    SUB t2, t1, t0
+    ; Jump if t1 >= t0
+    JPN skip_ge_80, t2
+    JMP endloop_79
+skip_ge_80:
+    ; Binary operation: ADD
+    LDI t0, -28
+    ADD t0, fp, t0
+    LI t1, t0
+    ; Array indexing
+    ; Array indexing
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t2, t0
+    LDI t0, -29
+    ADD t0, fp, t0
+    LB t3, t0
+    LDI t0, 8
+    MUL t0, t3, t0
+    ADD t4, t2, t0
+    LD t5, t4
+    LDI t0, -30
+    ADD t0, fp, t0
+    LB t2, t0
+    LDI t0, 8
+    MUL t0, t2, t0
+    ADD t3, t5, t0
+    LD t4, t3
+    ADD t0, t1, t4
+    ; Assignment to local variable: sum
+    LDI t1, -28
+    ADD t1, fp, t1
+    SI t1, t0
+    ; Binary operation: ADD
+    LDI t0, -30
+    ADD t0, fp, t0
+    LB t1, t0
     LDI t0, 1
-    JZ endloop_76, t0
+    ADD t2, t1, t0
+    ; Assignment to local variable: j
+    LDI t0, -30
+    ADD t0, fp, t0
+    SB t0, t2
+    JMP loop_78
+endloop_79:
+    ; Binary operation: ADD
+    LDI t0, -29
+    ADD t0, fp, t0
+    LB t1, t0
+    LDI t0, 1
+    ADD t2, t1, t0
+    ; Assignment to local variable: i
+    LDI t0, -29
+    ADD t0, fp, t0
+    SB t0, t2
     JMP loop_75
 endloop_76:
+    ; Expression statement
+    ; Function call: free
+    ; Preparing function call: free
+    ; Evaluating argument 0
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    PUSH t1
+    JAL free, ra
+    LDI t0, 8
+    ADD sp, sp, t0
+    ; Cleaned up 1 arguments from stack
+    MOV t0, a0
+    ; return statement
+    ; Type conversion to LONG
+    LDI t0, -28
+    ADD t0, fp, t0
+    LI t1, t0
+    ; Converting INT to LONG (sign extend 32→64)
+    SHL t0, t1, 32
+    SAR t0, t0, 32
+    MOV a0, t0
+    JMP main_end_74
     ; Function epilogue
 main_end_74:
-    LDI t0, 40
+    LDI t0, 32
     ADD sp, sp, t0
-    ; Deallocated 40 bytes for frame
+    ; Deallocated 32 bytes for frame
     POP fp
     POP ra
     JMP ra                               ; Return from function

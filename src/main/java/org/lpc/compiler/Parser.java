@@ -16,9 +16,15 @@ public class Parser {
     private final List<String> tokens;
     private int position = 0;
     private final SymbolTable symbolTable = new SymbolTable();
+    private final Map<Type, Long> sizeTable = new HashMap<>();
     private Type currentFunctionReturnType = PrimitiveType.LONG;
+
     public Parser(Lexer lexer) {
         this.tokens = lexer.tokenize();
+        // Initialize primitive strides
+        sizeTable.put(PrimitiveType.BYTE, 1L);
+        sizeTable.put(PrimitiveType.INT, 4L);
+        sizeTable.put(PrimitiveType.LONG, 8L);
     }
 
     public Program parse() {
@@ -338,6 +344,10 @@ public class Parser {
     }
 
     private Expression parsePrimary(Type expectedType) {
+        if (match("strideOf")) {
+            return parseStrideOf();
+        }
+
         // Handle typed dereference FIRST (byte@, int@, long@)
         if ((check("byte") || check("int") || check("long")) &&
                 position + 1 < tokens.size() &&
@@ -386,6 +396,40 @@ public class Parser {
             return new Variable(name, actualType);
         }
         throw new RuntimeException("Unexpected token: " + peek());
+    }
+
+    private Expression parseStrideOf() {
+        consume("(");
+        Type type = parseVariableType();
+        consume(")");
+        long stride = computeStride(type);
+        return Literal.ofLong(stride);
+    }
+
+    private long computeStride(Type type) {
+        // Check if already computed (for recursive cases)
+        if (sizeTable.containsKey(type)) {
+            return sizeTable.get(type);
+        }
+
+        if (type instanceof PrimitiveType) {
+            Long stride = sizeTable.get(type);
+            if (stride == null) {
+                throw new RuntimeException("Unknown primitive type for stride: " + type);
+            }
+            return stride;
+        } else if (type instanceof PointerType ptr) {
+            Type base = ptr.getElementType();
+            // For pointers: stride = base type's stride, but if base is pointer -> treat as long (8)
+            if (base instanceof PointerType) {
+                return 8; // Pointers-to-pointers use long stride (8 bytes)
+            }
+            long baseStride = computeStride(base);
+            sizeTable.put(type, baseStride); // Cache result
+            return baseStride;
+        } else {
+            throw new RuntimeException("Cannot compute stride for type: " + type);
+        }
     }
 
     private Statement parseIfStatement() {
@@ -519,9 +563,20 @@ public class Parser {
 
     private Expression parseArrayLiteral(Type expectedType) {
         List<Expression> elements = new ArrayList<>();
+
+        // Determine the correct element type for the array
+        Type elementType;
+        if (expectedType != null && expectedType.isPtr()) {
+            // For pointer types (long[]), element type is the pointer's element type
+            elementType = expectedType.asPointer().getElementType();
+        } else {
+            // For non-pointer types or when expectedType is null, use LONG as default
+            elementType = PrimitiveType.LONG;
+        }
+
         if (!check("]")) {
             do {
-                elements.add(parseExpression(expectedType));
+                elements.add(parseExpression(elementType));
             } while (match(","));
         }
         consume("]");
@@ -537,22 +592,22 @@ public class Parser {
             default -> throw new RuntimeException("Unknown type: " + typeToken);
         };
 
-        // Check for pointer type (e.g., "byte*")
-        if (match("*")) {
-            return new PointerType(baseType);
-        }
-
-        // Check for array type (e.g., "long[]")
-        if (match("[")) {
-            if (match("]")) {
-                // Array type is just a pointer to the base type
-                return new PointerType(baseType);
+        Type currentType = baseType;
+        // Handle multiple levels of pointers/arrays (e.g., long[][], long*[])
+        while (true) {
+            if (match("*")) {
+                currentType = new PointerType(currentType);
+            } else if (match("[")) {
+                if (match("]")) {
+                    currentType = new PointerType(currentType);
+                } else {
+                    throw new RuntimeException("Expected ']' after '['");
+                }
             } else {
-                throw new RuntimeException("Expected ']' after '['");
+                break;
             }
         }
-
-        return baseType;
+        return currentType;
     }
 
     private String consume() {
@@ -629,6 +684,7 @@ public class Parser {
             case PrimitiveType.LONG:
                 return Literal.ofLong(value);
             default:
+                if (expectedType.isPtr()) return Literal.ofLong(value);
                 throw new IllegalStateException("Unexpected value: " + expectedType);
         }
         throw new RuntimeException("Value " + value + " does not fit in " + expectedType);
@@ -655,7 +711,12 @@ public class Parser {
         }
         if (expression instanceof ArrayIndex arrayIdx) {
             Type arrayType = getExpressionType(arrayIdx.getArray());
-            return arrayType.isPtr() ? arrayType.asPointer().getElementType() : PrimitiveType.LONG;
+            if (arrayType.isPtr()) {
+                // If the element type is also a pointer, then the result of indexing is a pointer
+                // This handles multi-dimensional arrays correctly
+                return arrayType.asPointer().getElementType();
+            }
+            return PrimitiveType.LONG;
         }
         return PrimitiveType.LONG;
     }

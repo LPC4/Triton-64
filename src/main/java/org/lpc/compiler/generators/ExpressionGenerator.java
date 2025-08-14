@@ -76,8 +76,12 @@ public class ExpressionGenerator {
 
     private void generateUnaryOperation(UnaryOp.Op operator, String resultReg, String operandReg) {
         switch (operator) {
-            case NEG -> emitter.instruction("NEG", resultReg, operandReg);
-            case NOT -> emitter.instruction("NOT", resultReg, operandReg);
+            case NEG -> emitter.negate(resultReg, operandReg);
+            case NOT -> emitter.not(resultReg, operandReg);
+            case BIN_NOT -> {
+                emitter.not(resultReg, operandReg);
+                emitter.and(resultReg, resultReg, "1"); // should be expanded by assembler
+            }
             default -> throw new IllegalArgumentException("Unsupported unary operator: " + operator);
         }
     }
