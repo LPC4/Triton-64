@@ -47,30 +47,30 @@ public class PipelineExecutor {
 
     private CompletableFuture<int[]> assembleStage(List<String> compiledCode) {
         return CompletableFuture.supplyAsync(() ->
-                StageUtils.timeStage("Assembly", () -> {
-                    String assemblyCode = String.join("\n", compiledCode);
-                    int[] program = new Assembler().assemble(assemblyCode);
-                    Logger.log("Assembled %d instructions", program.length);
-                    return program;
-                }), executor
+            StageUtils.timeStage("Assembly", () -> {
+                String assemblyCode = String.join("\n", compiledCode);
+                int[] program = new Assembler().assemble(assemblyCode);
+                Logger.log("Assembled %d instructions", program.length);
+                return program;
+            }), executor
         );
     }
 
     private CompletableFuture<int[]> loadStage(int[] program) {
         return CompletableFuture.supplyAsync(() ->
-                StageUtils.timeStage("Loading", () -> {
-                    StageUtils.validateProgramSize(program);
-                    Memory memory = vm.getMemory();
-                    for (int i = 0; i < program.length; i++) {
-                        long address = MemoryMap.RAM_BASE + (long) i * Integer.BYTES;
-                        memory.writeInt(address, program[i]);
-                    }
-                    long maxInstructions = (MemoryMap.RAM_SIZE - MemoryMap.STACK_HEAP_SIZE) / 4;
-                    float percentageFilled = (float) ((program.length / (double) maxInstructions) * 100);
-                    Logger.log("Loaded %d out of max %d instructions to RAM", program.length, maxInstructions);
-                    Logger.log("Memory usage: %.3f%%", percentageFilled);
-                    return program;
-                }), executor
+            StageUtils.timeStage("Loading", () -> {
+                StageUtils.validateProgramSize(program);
+                Memory memory = vm.getMemory();
+                for (int i = 0; i < program.length; i++) {
+                    long address = MemoryMap.RAM_BASE + (long) i * Integer.BYTES;
+                    memory.writeInt(address, program[i]);
+                }
+                long maxInstructions = (MemoryMap.RAM_SIZE - MemoryMap.STACK_HEAP_SIZE) / 4;
+                float percentageFilled = (float) ((program.length / (double) maxInstructions) * 100);
+                Logger.log("Loaded %d out of max %d instructions to RAM", program.length, maxInstructions);
+                Logger.log("Memory usage: %.3f%%", percentageFilled);
+                return program;
+            }), executor
         );
     }
 

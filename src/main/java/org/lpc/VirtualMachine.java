@@ -13,6 +13,7 @@ import org.lpc.memory.MemoryMap;
 public class VirtualMachine {
     private final Memory memory;
     private final Cpu cpu;
+    // MMIO devices
     private final KeyboardDevice keyboardDevice;
     private final TimerDevice timerDevice;
 
@@ -20,6 +21,7 @@ public class VirtualMachine {
         IODeviceManager ioDeviceManager = new IODeviceManager();
         memory = new Memory(ioDeviceManager);
         cpu = new Cpu(memory);
+        // Initialize MMIO devices
         keyboardDevice = new KeyboardDevice(MemoryMap.MMIO_BASE);
         timerDevice = new TimerDevice(MemoryMap.MMIO_BASE + KeyboardDevice.SIZE);
         ioDeviceManager.addDevices(keyboardDevice, timerDevice);

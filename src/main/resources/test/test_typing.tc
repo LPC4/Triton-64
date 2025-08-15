@@ -19,5 +19,6 @@ func main(): long {
         i = i + 1
     }
     free(arr2d) ; free the allocated memory
+
     return long sum ; return the total sum of all elements
 }

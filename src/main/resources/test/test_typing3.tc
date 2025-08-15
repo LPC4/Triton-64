@@ -18,4 +18,6 @@ func main(): byte {
     arr[4] = y                   ; store 5th element
 
     while (1) {}
+
+    return 1
 }

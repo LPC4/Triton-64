@@ -2,6 +2,8 @@ package org.lpc.compiler.generators;
 
 import org.lpc.compiler.ast.expressions.BinaryOp;
 import org.lpc.compiler.context_managers.ContextManager;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.Type;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;
@@ -199,6 +201,36 @@ public class InstructionGenerator {
             case SHR -> instruction("SHR", resultReg, leftReg, rightReg);
             case SAR -> instruction("SAR", resultReg, leftReg, rightReg);
             default -> throw new IllegalArgumentException("Unsupported binary operator: " + op);
+        }
+    }
+
+    public void generateTypedStore(String addrReg, String valueReg, Type targetType) {
+        switch (targetType) {
+            case PrimitiveType.BYTE -> instruction("SB", addrReg, valueReg);  // Store byte (1 byte)
+            case PrimitiveType.INT -> instruction("SI", addrReg, valueReg);   // Store int (4 bytes)
+            case PrimitiveType.LONG -> instruction("ST", addrReg, valueReg);   // Store long (8 bytes)
+            default -> {
+                if (targetType.isPtr()) {
+                    instruction("ST", addrReg, valueReg);  // Pointers are stored as longs
+                } else {
+                    throw new IllegalStateException("Unsupported store type: " + targetType);
+                }
+            }
+        }
+    }
+
+    public void generateTypedLoad(String resultReg, String addrReg, Type type) {
+        switch (type) {
+            case PrimitiveType.BYTE -> instruction("LB", resultReg, addrReg);  // Load byte (1 byte)
+            case PrimitiveType.INT -> instruction("LI", resultReg, addrReg);   // Load int (4 bytes)
+            case PrimitiveType.LONG -> instruction("LD", resultReg, addrReg);  // Load long (8 bytes)
+            default -> {
+                if (type.isPtr()) {
+                    instruction("LD", resultReg, addrReg);  // Pointers are loaded as longs
+                } else {
+                    throw new IllegalStateException("Unsupported load type: " + type);
+                }
+            }
         }
     }
 }

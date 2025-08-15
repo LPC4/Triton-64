@@ -3,10 +3,14 @@ package org.lpc.compiler;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
+import org.lpc.compiler.ast.parent.StructDef;
 import org.lpc.compiler.context_managers.*;
 import org.lpc.compiler.ast.statements.*;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.generators.*;
+import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.StructType;
+import org.lpc.compiler.types.Type;
 
 import java.util.List;
 import java.util.Objects;
@@ -79,6 +83,11 @@ public final class CodeGenerator implements AstVisitor<String> {
     @Override
     public String visit(FunctionDef functionDef) {
         return programGenerator.visitFunctionDef(functionDef);
+    }
+
+    @Override
+    public String visit(StructDef structDef) {
+        return programGenerator.visitStructDef(structDef);
     }
 
     @Override
@@ -156,6 +165,11 @@ public final class CodeGenerator implements AstVisitor<String> {
     @Override
     public String visit(TypeConversion conversion) {
         return expressionGenerator.visitTypeConversion(conversion);
+    }
+
+    @Override
+    public String visit(StructFieldAccess structAccess) {
+        return expressionGenerator.visitStructFieldAccess(structAccess);
     }
 
     @Override

@@ -11,10 +11,12 @@ import java.util.List;
 public class Program implements AstNode {
     private final List<GlobalDeclaration> globals;
     private final List<FunctionDef> functions;
+    private final List<StructDef> structs;
 
-    public Program(List<GlobalDeclaration> globals, List<FunctionDef> functions) {
+    public Program(List<GlobalDeclaration> globals, List<FunctionDef> functions, List<StructDef> structs) {
         this.globals = globals;
         this.functions = functions;
+        this.structs = structs;
     }
 
     @Override
@@ -30,6 +32,13 @@ public class Program implements AstNode {
             sb.append("  globals=[\n");
             for (GlobalDeclaration global : globals) {
                 sb.append("    ").append(global).append("\n");
+            }
+            sb.append("  ],\n");
+        }
+        if (!structs.isEmpty()) {
+            sb.append("  structs=[\n");
+            for (StructDef struct : structs) {
+                sb.append("    ").append(struct).append("\n");
             }
             sb.append("  ],\n");
         }

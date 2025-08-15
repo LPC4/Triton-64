@@ -3,12 +3,14 @@ package org.lpc.compiler.ast;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
+import org.lpc.compiler.ast.parent.StructDef;
 import org.lpc.compiler.ast.statements.*;
 
 public interface AstVisitor<T> {
     // Program and function definitions
     T visit(Program program);
     T visit(FunctionDef functionDef);
+    T visit(StructDef structDef);
 
     // Statements
     T visit(ReturnStatement returnStatement);
@@ -30,4 +32,5 @@ public interface AstVisitor<T> {
     T visit(ArrayLiteral arrayLiteral);
     T visit(ArrayIndex arrayIndex);
     T visit(TypeConversion typeConversion);
+    T visit(StructFieldAccess structAccess);
 }

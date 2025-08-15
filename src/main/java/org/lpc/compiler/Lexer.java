@@ -2,9 +2,10 @@ package org.lpc.compiler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class Lexer {
-    private static final String SPECIAL_CHARS = "~@(){}[]=-,+-*/%<>!&:|";
+    private static final String SPECIAL_CHARS = "~@(){}[]=-,+-*/%<>!&:|.?";
     private final String input;
     private int position = 0;
 
@@ -16,6 +17,7 @@ public class Lexer {
     }
 
     public Lexer(Linker linker) {
+        Objects.requireNonNull(linker, "Linker cannot be null");
         this.input = linker.link();
     }
 

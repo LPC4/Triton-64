@@ -9,8 +9,8 @@ import org.lpc.compiler.ast.statements.Statement;
 
 import java.util.List;
 
-@ToString
 @Getter
+@ToString
 public class FunctionDef implements AstNode {
     private final String name;
     private final List<String> parameters;

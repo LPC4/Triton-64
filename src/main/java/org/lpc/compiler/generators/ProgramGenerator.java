@@ -46,7 +46,13 @@ public class ProgramGenerator {
         emitter.halt();
 
         // Generate all function definitions
-        generateFunctions(program.getFunctions());
+        program.getFunctions().forEach(func -> {
+            try {
+                func.accept(astVisitor);
+            } catch (Exception e) {
+                throw new CodeGenerator.CodeGenerationException("Failed to generate function: " + func.getName(), e);
+            }
+        });
 
         return null;
     }
@@ -73,19 +79,15 @@ public class ProgramGenerator {
         }
     }
 
-    public String visitGlobalDeclaration(GlobalDeclaration globalDeclaration) {
+    public String visitGlobalDeclaration(GlobalDeclaration ignoredGlobalDeclaration) {
         // Global declarations are handled in Program.visit()
         return null;
     }
 
-    private void generateFunctions(List<FunctionDef> functions) {
-        functions.forEach(func -> {
-            try {
-                func.accept(astVisitor);
-            } catch (Exception e) {
-                throw new CodeGenerator.CodeGenerationException("Failed to generate function: " + func.getName(), e);
-            }
-        });
+    public String visitStructDef(StructDef ignoredStructDef) {
+        // Struct definitions are not directly translated to assembly
+        // but can be used for type checking and validation
+        return null;
     }
 
     public void generateStatements(List<Statement> statements) {

@@ -1,6 +1,8 @@
 package org.lpc.compiler;
 
+import org.lpc.compiler.ast.parent.StructDef;
 import org.lpc.compiler.types.PrimitiveType;
+import org.lpc.compiler.types.StructType;
 import org.lpc.compiler.types.Type;
 import org.lpc.compiler.types.PointerType;
 import org.lpc.compiler.ast.expressions.*;
@@ -16,10 +18,12 @@ public class Parser {
     private final List<String> tokens;
     private int position = 0;
     private final SymbolTable symbolTable = new SymbolTable();
+    private final Map<String, Type> typeTable = new HashMap<>();
     private final Map<Type, Long> sizeTable = new HashMap<>();
     private Type currentFunctionReturnType = PrimitiveType.LONG;
 
     public Parser(Lexer lexer) {
+        Objects.requireNonNull(lexer, "Lexer cannot be null");
         this.tokens = lexer.tokenize();
         // Initialize primitive strides
         sizeTable.put(PrimitiveType.BYTE, 1L);
@@ -28,25 +32,210 @@ public class Parser {
     }
 
     public Program parse() {
-        symbolTable.enterScope();  // Enter global scope
+        // Pass 1: Collect type definitions and function signatures
+        List<StructDef> structs = new ArrayList<>();
+        List<FunctionDef> functionSignatures = new ArrayList<>();
+        List<Integer> bodyStartPositions = new ArrayList<>();
+
+        symbolTable.enterScope();
+
+        parsePass1(structs, functionSignatures, bodyStartPositions);
+
+        // Reset position for second pass
+        position = 0;
+
+        // Pass 2: Parse actual code with full type information
+        try {
+            return parsePass2(structs, functionSignatures, bodyStartPositions);
+        } finally { symbolTable.exitScope();}
+    }
+
+    private void parsePass1(List<StructDef> structs, List<FunctionDef> functionSignatures, List<Integer> bodyStartPositions) {
+        while (!isAtEnd()) {
+            if (match("struct")) {
+                StructDef structDef = parseStruct();
+                structs.add(structDef);
+                typeTable.put(structDef.getName(), new StructType(structDef.getName(), structDef.getFields()));
+            } else if (match("func")) {
+                FunctionDef sig = parseFunctionSignature();
+                functionSignatures.add(sig);
+                // Add function signature to symbol table
+                symbolTable.define(sig.getName(), sig.getReturnType());
+                if (!check("{")) {
+                    throw new RuntimeException("Expected '{' after function signature");
+                }
+                bodyStartPositions.add(position);
+                skipFunctionBody();
+            } else {
+                // Skip non-type elements in pass 1
+                consume();
+            }
+        }
+
+    }
+
+    private Program parsePass2(List<StructDef> structs, List<FunctionDef> functionSignatures, List<Integer> bodyStartPositions) {
         List<GlobalDeclaration> globals = new ArrayList<>();
         List<FunctionDef> functions = new ArrayList<>();
+
+        // Parse all top-level items (skipping types already processed)
         while (!isAtEnd()) {
-            if (match("global")) {
+            if (match("struct")) {
+                skipStruct();
+            } else if (match("func")) {
+                skipFunctionDefinition();
+            } else if (match("global")) {
                 GlobalDeclaration global = parseGlobalDeclaration();
                 symbolTable.define(global.getName(), global.getType());
                 globals.add(global);
-            } else if (match("func")) {
-                functions.add(parseFunction());
             } else {
-                throw new RuntimeException("Expected 'global' or 'func', found: " + peek());
+                throw new RuntimeException("Expected 'global', found: " + peek());
             }
         }
-        symbolTable.exitScope();
-        Program program = new Program(globals, functions);
+
+        // Parse function bodies using saved positions
+        for (int i = 0; i < functionSignatures.size(); i++) {
+            int savedPos = position;
+            position = bodyStartPositions.get(i);
+            consume("{");
+
+            // Set the current function return type before parsing the body
+            Type originalReturnType = currentFunctionReturnType;
+            currentFunctionReturnType = functionSignatures.get(i).getReturnType();
+
+            // Enter function scope and add parameters
+            symbolTable.enterScope();
+            FunctionDef sig = functionSignatures.get(i);
+            for (int j = 0; j < sig.getParameters().size(); j++) {
+                symbolTable.define(sig.getParameters().get(j), sig.getParameterTypes().get(j));
+            }
+
+            // Parse the body with the correct return type
+            List<Statement> body = parseBlock();
+
+            // Exit function scope and restore original return type
+            symbolTable.exitScope();
+            currentFunctionReturnType = originalReturnType;
+
+            functions.add(new FunctionDef(
+                    sig.getName(),
+                    sig.getParameters(),
+                    body,
+                    sig.getParameterTypes(),
+                    sig.getReturnType()
+            ));
+            position = savedPos;
+        }
+        Program program = new Program(globals, functions, structs);
         System.out.println("\nParsed AST:");
         System.out.println(program);
         return program;
+    }
+
+    private Statement parseReturnStatement() {
+        if (check("}")) {
+            return new ReturnStatement(null); // No return value
+        }
+
+        // Parse the expression with type information from the function return type
+        Expression value = parseExpression(currentFunctionReturnType);
+
+        // Check if we need to convert types
+        Type valueType = Type.getExpressionType(value);
+        if (valueType != null && !valueType.equals(currentFunctionReturnType)) {
+            // Create a type conversion node
+            value = new TypeConversion(value, currentFunctionReturnType);
+        }
+        return new ReturnStatement(value);
+    }
+
+    private FunctionCall parseFunctionCall(String name) {
+        consume("(");
+        List<Expression> args = new ArrayList<>();
+        if (!check(")")) {
+            do {
+                args.add(parseExpression(null));
+            } while (match(","));
+        }
+        consume(")");
+
+        // Look up return type from symbol table
+        Type returnType = symbolTable.lookup(name);
+        if (returnType == null) {
+            throw new RuntimeException("Function not defined: " + name);
+        }
+        return new FunctionCall(name, args, returnType);
+    }
+
+    private void skipStruct() {
+        consume(); // consume name
+        consume("{");
+        int braceCount = 1;
+        while (braceCount > 0 && !isAtEnd()) {
+            String token = consume();
+            if (token.equals("{")) braceCount++;
+            else if (token.equals("}")) braceCount--;
+        }
+        if (braceCount != 0) {
+            throw new RuntimeException("Unmatched braces in struct");
+        }
+    }
+
+    private void skipFunctionDefinition() {
+        // Skip the rest
+        while (!isAtEnd() && !check("{")) {
+            consume();
+        }
+        if (isAtEnd()) {
+            throw new RuntimeException("Unexpected end of file in function definition");
+        }
+        skipFunctionBody();
+    }
+
+    private void skipFunctionBody() {
+        consume("{");
+        int braceCount = 1;
+        while (braceCount > 0 && !isAtEnd()) {
+            String token = consume();
+            if (token.equals("{")) braceCount++;
+            else if (token.equals("}")) braceCount--;
+        }
+        if (braceCount != 0) {
+            throw new RuntimeException("Unmatched braces in function body");
+        }
+    }
+
+    private StructDef parseStruct() {
+        symbolTable.enterScope();
+        String name = consume();
+        consume("{");
+        List<StructType.Field> fields = new ArrayList<>();
+
+        while (!check("}")) {
+            consume("var");
+            String fieldName = consume();
+            Type fieldType;
+
+            if (match(":")) {
+                fieldType = parseVariableType();
+            } else {
+                fieldType = PrimitiveType.LONG;
+            }
+
+            // Record field in symbol table for access resolution
+            symbolTable.define(fieldName, fieldType);
+            fields.add(new StructType.Field(fieldName, fieldType));
+        }
+        consume("}");
+
+        // Calculate struct size
+        long totalSize = fields.stream()
+                .mapToLong(field -> field.type().getSize())
+                .sum();
+        sizeTable.put(new StructType(name, fields), totalSize);
+
+        symbolTable.exitScope();
+        return new StructDef(name, fields);
     }
 
     private GlobalDeclaration parseGlobalDeclaration() {
@@ -69,26 +258,33 @@ public class Parser {
 
     private Statement parseDeclaration() {
         String name = consume();
-        // typed
-        Type type;
+
+        // Typed
+        Type type = null;
         if (match(":")) {
             type = parseVariableType();
-        } else { // default to long
-            type = PrimitiveType.LONG;
         }
+
         Expression initializer;
         if (match("=")) {
             initializer = parseExpression(type);
         } else {
             initializer = createLiteral(0, type);
         }
+
+        // If still null, determine type from initializer
+        if (type == null) {
+            type = Type.getExpressionType(initializer) != null
+                    ? Type.getExpressionType(initializer)
+                    : PrimitiveType.LONG; // Default to LONG if no type specified in initializer
+        }
+
         // Add to symbol table
         symbolTable.define(name, type);
         return new Declaration(name, initializer, type);
     }
 
-    private FunctionDef parseFunction() {
-        symbolTable.enterScope();  // Enter function scope
+    private FunctionDef parseFunctionSignature() {
         String name = consume();
         consume("(");
         List<String> parameters = new ArrayList<>();
@@ -104,19 +300,14 @@ public class Parser {
                 }
                 parameters.add(paramName);
                 parameterTypes.add(paramType);
-                symbolTable.define(paramName, paramType);  // Track parameter type
             } while (match(","));
         }
         consume(")");
         Type returnType = PrimitiveType.LONG;
         if (match(":")) {
             returnType = parseVariableType();
-            currentFunctionReturnType = returnType;
         }
-        consume("{");
-        List<Statement> body = parseBlock();
-        symbolTable.exitScope();  // Exit function scope
-        return new FunctionDef(name, parameters, body, parameterTypes, returnType);
+        return new FunctionDef(name, parameters, null, parameterTypes, returnType);
     }
 
     private List<Statement> parseBlock() {
@@ -329,13 +520,42 @@ public class Parser {
     private Expression parsePostfix(Type expectedType) {
         Expression expr = parsePrimary(expectedType);
         while (true) {
+            // Handle array indexing
             if (match("[")) {
-                // Array indexing
                 Expression index = parseExpression(null);
                 consume("]");
                 expr = new ArrayIndex(expr, index);
-            } else if (check("(") && expr instanceof Variable var) {
-                return parseFunctionCall(var.getName(), expectedType);
+            }
+            // Handle struct field access
+            else if (match(".")) {
+                String fieldName = consume();
+                // Create the field access node
+                StructFieldAccess fieldAccess = new StructFieldAccess(expr, fieldName);
+
+                // Try to resolve the field type immediately
+                Type baseType = Type.getExpressionType(expr);
+                if (baseType != null) {
+                    // If base is a pointer, get the element type
+                    Type structType = baseType.isPtr() ? baseType.asPointer().getElementType() : baseType;
+
+                    if (structType.isStruct()) {
+                        StructType structDef = structType.asStruct();
+                        // Look up the field
+                        for (StructType.Field field : structDef.getFields()) {
+                            if (field.name().equals(fieldName)) {
+                                fieldAccess.setFieldType(field.type());
+                                fieldAccess.setFieldOffset(structDef.getFieldOffset(fieldName));
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                expr = fieldAccess;
+            }
+            // Handle function calls
+            else if (check("(") && expr instanceof Variable var) {
+                return parseFunctionCall(var.getName());
             } else {
                 break;
             }
@@ -460,21 +680,6 @@ public class Parser {
         return new WhileStatement(condition, body);
     }
 
-    private Statement parseReturnStatement() {
-        if (check("}")) {
-            return new ReturnStatement(null);
-        }
-        // Parse the expression with type information from the function return type
-        Expression value = parseExpression(currentFunctionReturnType);
-        // Check if we need to convert types
-        Type valueType = getExpressionType(value);
-        if (valueType != null && valueType != currentFunctionReturnType) {
-            // Create a type conversion node
-            value = new TypeConversion(value, currentFunctionReturnType);
-        }
-        return new ReturnStatement(value);
-    }
-
     private Statement parseAsmStatement() {
         consume("{");
         StringBuilder asmCode = new StringBuilder();
@@ -484,18 +689,6 @@ public class Parser {
         }
         consume("}");
         return new AsmStatement(asmCode.toString());
-    }
-
-    private FunctionCall parseFunctionCall(String name, Type expectedType) {
-        consume("(");
-        List<Expression> args = new ArrayList<>();
-        if (!check(")")) {
-            do {
-                args.add(parseExpression(null));
-            } while (match(","));
-        }
-        consume(")");
-        return new FunctionCall(name, args);
     }
 
     private long parseCharLiteral(String charToken) {
@@ -564,14 +757,10 @@ public class Parser {
     private Expression parseArrayLiteral(Type expectedType) {
         List<Expression> elements = new ArrayList<>();
 
-        // Determine the correct element type for the array
-        Type elementType;
+        // Determine element type from expected type
+        Type elementType = PrimitiveType.LONG;
         if (expectedType != null && expectedType.isPtr()) {
-            // For pointer types (long[]), element type is the pointer's element type
             elementType = expectedType.asPointer().getElementType();
-        } else {
-            // For non-pointer types or when expectedType is null, use LONG as default
-            elementType = PrimitiveType.LONG;
         }
 
         if (!check("]")) {
@@ -580,20 +769,29 @@ public class Parser {
             } while (match(","));
         }
         consume("]");
-        return new ArrayLiteral(elements, expectedType != null ? expectedType : PrimitiveType.LONG);
+        return new ArrayLiteral(elements, expectedType);
     }
 
     private Type parseVariableType() {
         String typeToken = consume();
-        Type baseType = switch (typeToken.toLowerCase()) {
-            case "byte" -> PrimitiveType.BYTE;
-            case "int" -> PrimitiveType.INT;
-            case "long" -> PrimitiveType.LONG;
-            default -> throw new RuntimeException("Unknown type: " + typeToken);
-        };
+        Type baseType;
+
+        // Check if it's a struct name
+        if (typeTable.containsKey(typeToken)) {
+            baseType = typeTable.get(typeToken);
+        }
+        // Check primitive types
+        else {
+            baseType = switch (typeToken.toLowerCase()) {
+                case "byte" -> PrimitiveType.BYTE;
+                case "int" -> PrimitiveType.INT;
+                case "long" -> PrimitiveType.LONG;
+                default -> throw new RuntimeException("Unknown type: " + typeToken);
+            };
+        }
 
         Type currentType = baseType;
-        // Handle multiple levels of pointers/arrays (e.g., long[][], long*[])
+        // Handle pointers/arrays
         while (true) {
             if (match("*")) {
                 currentType = new PointerType(currentType);
@@ -688,37 +886,6 @@ public class Parser {
                 throw new IllegalStateException("Unexpected value: " + expectedType);
         }
         throw new RuntimeException("Value " + value + " does not fit in " + expectedType);
-    }
-
-    private Type getExpressionType(Expression expression) {
-        if (expression == null) {
-            return PrimitiveType.LONG;
-        }
-        if (expression instanceof Variable var) {
-            return var.getType();
-        }
-        if (expression instanceof Literal<?> lit) {
-            return lit.getType();
-        }
-        if (expression instanceof TypeConversion typeConv) {
-            return typeConv.getTargetType();
-        }
-        if (expression instanceof BinaryOp binOp) {
-            return getExpressionType(binOp.getLeft());
-        }
-        if (expression instanceof Dereference deref) {
-            return deref.getType();
-        }
-        if (expression instanceof ArrayIndex arrayIdx) {
-            Type arrayType = getExpressionType(arrayIdx.getArray());
-            if (arrayType.isPtr()) {
-                // If the element type is also a pointer, then the result of indexing is a pointer
-                // This handles multi-dimensional arrays correctly
-                return arrayType.asPointer().getElementType();
-            }
-            return PrimitiveType.LONG;
-        }
-        return PrimitiveType.LONG;
     }
 
     /**

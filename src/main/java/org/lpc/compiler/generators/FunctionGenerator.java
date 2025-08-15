@@ -50,7 +50,9 @@ public class FunctionGenerator {
         preAllocateLocalVariables(info.declarations());
 
         generateFunctionPrologue();
+
         programGenerator.generateStatements(body);
+
         generateFunctionEpilogue(endLabel);
 
         stackManager.endFunctionFrame();

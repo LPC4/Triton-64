@@ -1,12 +1,9 @@
 package org.lpc.compiler.generators;
 
 import org.lpc.compiler.CodeGenerator;
-import org.lpc.compiler.types.PrimitiveType;
-import org.lpc.compiler.types.Type;
-import org.lpc.compiler.types.PointerType;
 import org.lpc.compiler.ast.expressions.*;
 import org.lpc.compiler.context_managers.*;
-import java.util.List;
+import org.lpc.compiler.types.*;
 
 /**
  * Handles code generation for expressions.
@@ -18,8 +15,8 @@ public class ExpressionGenerator {
     private final ConditionalGenerator conditionalGenerator;
     private final FunctionGenerator functionGenerator;
     private final GlobalManager globalManager;
-    // Reference to the main generator for recursive calls
-    private final CodeGenerator astVisitor;
+    private final CodeGenerator codeGenerator;
+
     public ExpressionGenerator(
             InstructionGenerator emitter,
             RegisterManager registerManager,
@@ -27,51 +24,171 @@ public class ExpressionGenerator {
             ConditionalGenerator conditionalGenerator,
             FunctionGenerator functionGenerator,
             GlobalManager globalManager,
-            CodeGenerator astVisitor) {
+            CodeGenerator codeGenerator) {
         this.emitter = emitter;
         this.registerManager = registerManager;
         this.stackManager = stackManager;
         this.conditionalGenerator = conditionalGenerator;
         this.functionGenerator = functionGenerator;
         this.globalManager = globalManager;
-        this.astVisitor = astVisitor;
+        this.codeGenerator = codeGenerator;
     }
+
+    // ========================================================================
+    // Core Expression Handlers
+    // ========================================================================
 
     public String visitBinaryOp(BinaryOp binaryOp) {
-        final BinaryOp.Op operator = binaryOp.getOp();
-        // Handle comparison operators
+        BinaryOp.Op operator = binaryOp.getOp();
         if (ConditionalGenerator.isComparisonOp(operator)) {
-            return conditionalGenerator.generateComparisonResult(binaryOp, astVisitor);
+            return conditionalGenerator.generateComparisonResult(binaryOp, codeGenerator);
         }
-        // Handle logical operators
         if (ConditionalGenerator.isLogicalOp(operator)) {
-            return conditionalGenerator.generateLogicalResult(binaryOp, astVisitor);
+            return conditionalGenerator.generateLogicalResult(binaryOp, codeGenerator);
         }
-        // Handle arithmetic/bitwise operations
-        return generateArithmeticOperation(binaryOp);
-    }
-
-    private String generateArithmeticOperation(BinaryOp binaryOp) {
-        emitter.comment("Binary operation: " + binaryOp.getOp());
-        final String leftReg = binaryOp.getLeft().accept(astVisitor);
-        final String rightReg = binaryOp.getRight().accept(astVisitor);
-        final String resultReg = registerManager.allocateRegister();
-        try {
-            emitter.generateBinaryOperation(binaryOp.getOp(), resultReg, leftReg, rightReg);
-            return resultReg;
-        } finally {
-            registerManager.freeRegister(leftReg);
-            registerManager.freeRegister(rightReg);
-        }
+        return handleArithmeticBinaryOp(binaryOp);
     }
 
     public String visitUnaryOp(UnaryOp unaryOp) {
         emitter.comment("Unary operation: " + unaryOp.getOp());
-        final String operandReg = unaryOp.getOperand().accept(astVisitor);
-        final String resultReg = registerManager.allocateRegister();
-        generateUnaryOperation(unaryOp.getOp(), resultReg, operandReg);
-        registerManager.freeRegister(operandReg);
-        return resultReg;
+        String operandReg = unaryOp.getOperand().accept(codeGenerator);
+        String resultReg = registerManager.allocateRegister();
+
+        try {
+            generateUnaryOperation(unaryOp.getOp(), resultReg, operandReg);
+            return resultReg;
+        } finally {
+            registerManager.freeRegister(operandReg);
+        }
+    }
+
+    public String visitFunctionCall(FunctionCall functionCall) {
+        emitter.comment("Function call: " + functionCall.getName());
+        return functionGenerator.generateFunctionCall(
+                functionCall.getName(),
+                functionCall.getArguments(),
+                codeGenerator
+        );
+    }
+
+    public String visitLiteral(Literal<?> literal) {
+        emitter.comment("Literal value: " + literal.getValue());
+        String reg = registerManager.allocateRegister();
+        try {
+            emitter.loadImmediate(reg, String.valueOf(literal.getValue()));
+            return reg;
+        } catch (Exception e) {
+            registerManager.freeRegister(reg);
+            throw e;
+        }
+    }
+
+    public String visitVariable(Variable variable) {
+        emitter.comment("Variable access: " + variable.getName());
+        return globalManager.isGlobal(variable.getName())
+                ? loadGlobalVariable(variable)
+                : loadLocalVariable(variable);
+    }
+
+    public String visitDereference(Dereference dereference) {
+        emitter.comment("Dereference operation");
+        String addrReg = null;
+        String resultReg = registerManager.allocateRegister();
+
+        try {
+            addrReg = dereference.getAddress().accept(codeGenerator);
+            handleDereferenceType(dereference, addrReg, resultReg);
+            return resultReg;
+        } finally {
+            if (addrReg != null) {
+                registerManager.freeRegister(addrReg);
+            }
+        }
+    }
+
+    public String visitTypeConversion(TypeConversion conversion) {
+        emitter.comment("Type conversion to " + conversion.getTargetType());
+        String sourceReg = null;
+        String resultReg = registerManager.allocateRegister("conversion_result");
+
+        try {
+            sourceReg = conversion.getExpression().accept(codeGenerator);
+            performTypeConversion(
+                    Type.getExpressionType(conversion.getExpression()),
+                    conversion.getTargetType(),
+                    sourceReg,
+                    resultReg
+            );
+            return resultReg;
+        } finally {
+            if (sourceReg != null) {
+                registerManager.freeRegister(sourceReg);
+            }
+        }
+    }
+
+    public String visitStructFieldAccess(StructFieldAccess structAccess) {
+        emitter.comment("Struct field access: " + structAccess.getFieldName());
+        String baseReg = structAccess.getBase().accept(codeGenerator);
+        String resultReg = registerManager.allocateRegister();
+
+        try {
+            String addrReg = calculateStructFieldAddress(baseReg, structAccess.getFieldOffset());
+            try {
+                emitter.generateTypedLoad(resultReg, addrReg, structAccess.getFieldType());
+                return resultReg;
+            } finally {
+                registerManager.freeRegister(addrReg);
+            }
+        } finally {
+            registerManager.freeRegister(baseReg);
+        }
+    }
+
+    public String visitArrayLiteral(ArrayLiteral ignoredArrayLiteral) {
+        throw new IllegalStateException(
+                "Array literal must be used in assignment context. " +
+                        "Use: var x = malloc(size); @x = [1,2,3];"
+        );
+    }
+
+    public String visitArrayIndex(ArrayIndex arrayIndex) {
+        emitter.comment("Array indexing operation");
+        String arrayReg = null;
+        String indexReg = null;
+
+        try {
+            arrayReg = arrayIndex.getArray().accept(codeGenerator);
+            indexReg = arrayIndex.getIndex().accept(codeGenerator);
+            return handleArrayIndexing(arrayIndex, arrayReg, indexReg);
+        } finally {
+            freeRegisters(arrayReg, indexReg);
+        }
+    }
+
+    // ========================================================================
+    // Helper Methods
+    // ========================================================================
+
+    private String handleArithmeticBinaryOp(BinaryOp binaryOp) {
+        emitter.comment("Arithmetic operation: " + binaryOp.getOp());
+        String leftReg = null;
+        String rightReg = null;
+        String resultReg = registerManager.allocateRegister();
+
+        try {
+            leftReg = binaryOp.getLeft().accept(codeGenerator);
+            rightReg = binaryOp.getRight().accept(codeGenerator);
+            emitter.generateBinaryOperation(
+                    binaryOp.getOp(),
+                    resultReg,
+                    leftReg,
+                    rightReg
+            );
+            return resultReg;
+        } finally {
+            freeRegisters(leftReg, rightReg);
+        }
     }
 
     private void generateUnaryOperation(UnaryOp.Op operator, String resultReg, String operandReg) {
@@ -80,194 +197,144 @@ public class ExpressionGenerator {
             case NOT -> emitter.not(resultReg, operandReg);
             case BIN_NOT -> {
                 emitter.not(resultReg, operandReg);
-                emitter.and(resultReg, resultReg, "1"); // should be expanded by assembler
+                emitter.and(resultReg, resultReg, "1"); // Mask to 1 bit
             }
-            default -> throw new IllegalArgumentException("Unsupported unary operator: " + operator);
+            default -> throw new IllegalArgumentException(
+                    "Unsupported unary operator: " + operator
+            );
         }
     }
 
-    public String visitFunctionCall(FunctionCall functionCall) {
-        emitter.comment("Function call: " + functionCall.getName());
-        validateArgumentCount(functionCall);
-        return functionGenerator.generateFunctionCall(
-                functionCall.getName(),
-                functionCall.getArguments(),
-                astVisitor
+    private String loadGlobalVariable(Variable variable) {
+        return globalManager.loadFromGlobal(
+                variable.getName(),
+                variable.getType()
         );
     }
 
-    private void validateArgumentCount(FunctionCall functionCall) {
-        if (functionCall.getArguments().size() > 7) {
-            throw new IllegalArgumentException("Too many arguments for function: " + functionCall.getName());
-        }
+    private String loadLocalVariable(Variable variable) {
+        return stackManager.loadFromStack(
+                stackManager.getVariableOffset(variable.getName()),
+                variable.getType()
+        );
     }
 
-    public String visitLiteral(Literal<?> literal) {
-        final String reg = registerManager.allocateRegister();
-        // can cast literal.getValue() to long safely, others are bytes or ints
-        emitter.loadImmediate(reg, String.valueOf(literal.getValue()));
-        return reg;
-    }
-
-    public String visitVariable(Variable variable) {
-        final String variableName = variable.getName();
-        if (globalManager.isGlobal(variableName)) {
-            return globalManager.loadFromGlobal(variableName, variable.getType());
-        }
-        final int offset = stackManager.getVariableOffset(variableName);
-        return stackManager.loadFromStack(offset, variable.getType());
-    }
-
-    public String visitDereference(Dereference dereference) {
-        final String addrReg = dereference.getAddress().accept(astVisitor);
-        final String resultReg = registerManager.allocateRegister();
-        final Type derefType = dereference.getType(); // Target type for dereference
-
-        // Handle raw pointers (long) converted via @ operator
+    private void handleDereferenceType(Dereference dereference, String addrReg, String resultReg) {
+        Type derefType = dereference.getType();
         if (derefType != null && !derefType.isPtr()) {
-            switch (derefType) {
-                case PrimitiveType.BYTE -> emitter.loadByte(resultReg, addrReg);
-                case PrimitiveType.INT -> emitter.loadInt(resultReg, addrReg);
-                case PrimitiveType.LONG -> emitter.load(resultReg, addrReg);
-                default -> throw new IllegalArgumentException(
-                        "Unsupported dereference type: " + derefType
-                );
-            }
+            handleRawPointerDereference(derefType, addrReg, resultReg);
+        } else {
+            handleTypedPointerDereference(dereference, addrReg, resultReg);
         }
-        // Handle typed pointers (already pointer type)
-        else {
-            Type addrType = getExpressionType(dereference.getAddress());
-            if (!addrType.isPtr()) {
-                throw new IllegalArgumentException(
-                        "Dereference requires pointer type, but got: " + addrType
-                );
-            }
+    }
 
-            PointerType ptrType = addrType.asPointer();
-            Type elementType = ptrType.getElementType();
-            switch (elementType) {
-                case PrimitiveType.BYTE -> emitter.loadByte(resultReg, addrReg);
-                case PrimitiveType.INT -> emitter.loadInt(resultReg, addrReg);
-                case PrimitiveType.LONG -> emitter.load(resultReg, addrReg);
-                default -> {
-                    if (elementType.isPtr()) {
-                        emitter.load(resultReg, addrReg); // Pointers stored as longs
-                    } else {
-                        throw new IllegalArgumentException(
-                                "Unsupported pointer element type: " + elementType
-                        );
-                    }
+    private void handleRawPointerDereference(Type derefType, String addrReg, String resultReg) {
+        switch (derefType) {
+            case PrimitiveType.BYTE -> emitter.loadByte(resultReg, addrReg);
+            case PrimitiveType.INT -> emitter.loadInt(resultReg, addrReg);
+            case PrimitiveType.LONG -> emitter.load(resultReg, addrReg);
+            default -> throw new IllegalArgumentException(
+                    "Unsupported dereference type: " + derefType
+            );
+        }
+    }
+
+    private void handleTypedPointerDereference(Dereference dereference, String addrReg, String resultReg) {
+        Type addrType = Type.getExpressionType(dereference.getAddress());
+        if (!addrType.isPtr()) {
+            throw new IllegalArgumentException(
+                    "Dereference requires pointer type, but got: " + addrType
+            );
+        }
+
+        Type elementType = addrType.asPointer().getElementType();
+        switch (elementType) {
+            case PrimitiveType.BYTE -> emitter.loadByte(resultReg, addrReg);
+            case PrimitiveType.INT -> emitter.loadInt(resultReg, addrReg);
+            case PrimitiveType.LONG -> emitter.load(resultReg, addrReg);
+            default -> {
+                if (elementType.isPtr()) {
+                    emitter.load(resultReg, addrReg); // Pointers stored as longs
+                } else {
+                    throw new IllegalArgumentException(
+                            "Unsupported pointer element type: " + elementType
+                    );
                 }
             }
         }
-
-        registerManager.freeRegister(addrReg);
-        return resultReg;
     }
 
-    public String visitTypeConversion(TypeConversion conversion) {
-        emitter.comment("Type conversion to " + conversion.getTargetType());
-        final String sourceReg = conversion.getExpression().accept(astVisitor);
-        final String resultReg = registerManager.allocateRegister("conversion_result");
-        final Type sourceType = getExpressionType(conversion.getExpression());
-        final Type targetType = conversion.getTargetType();
-        performTypeConversion(sourceType, targetType, sourceReg, resultReg);
-        registerManager.freeRegister(sourceReg);
-        return resultReg;
+    private String calculateStructFieldAddress(String baseReg, int offset) {
+        String addrReg = registerManager.allocateRegister();
+        emitter.instruction("LDI", addrReg, String.valueOf(offset));
+        emitter.instruction("ADD", addrReg, baseReg, addrReg);
+        return addrReg;
     }
 
-    private void performTypeConversion(Type sourceType, Type targetType,
-                                       String sourceReg, String resultReg) {
-        TypeConversionGenerator converter = new TypeConversionGenerator(emitter, registerManager);
-        converter.convert(sourceType, targetType, sourceReg, resultReg);
+    private void performTypeConversion(
+            Type sourceType,
+            Type targetType,
+            String sourceReg,
+            String resultReg) {
+
+        new TypeConversionGenerator(emitter, registerManager)
+                .convert(sourceType, targetType, sourceReg, resultReg);
     }
 
-    public String visitArrayLiteral(ArrayLiteral arrayLiteral) {
-        emitter.comment("Array literal with " + arrayLiteral.getElements().size() + " elements");
-        if (arrayLiteral.getElements().isEmpty()) {
-            final String resultReg = registerManager.allocateRegister();
-            emitter.loadImmediate(resultReg, "0");
-            return resultReg;
-        }
-        throw new IllegalStateException(
-                "Array literal must be used in assignment context. Use: var x = malloc(size); @x = [1,2,3];"
-        );
-    }
+    private String handleArrayIndexing(ArrayIndex arrayIndex, String arrayReg, String indexReg) {
+        validateArrayIndexingType(arrayIndex);
 
-    public String visitArrayIndex(ArrayIndex arrayIndex) {
-        emitter.comment("Array indexing");
-        final String arrayReg = arrayIndex.getArray().accept(astVisitor);
-        final String indexReg = arrayIndex.getIndex().accept(astVisitor);
+        String offsetReg = null;
+        String addrReg = null;
+        String resultReg = registerManager.allocateRegister();
+
         try {
-            return performArrayIndexing(arrayReg, indexReg, arrayIndex);
-        } finally {
-            registerManager.freeRegister(arrayReg);
-            registerManager.freeRegister(indexReg);
-        }
-    }
+            offsetReg = registerManager.allocateRegister();
+            addrReg = registerManager.allocateRegister();
 
-    private String performArrayIndexing(String arrayReg, String indexReg, ArrayIndex arrayIndex) {
-        final String offsetReg = registerManager.allocateRegister();
-        final String addrReg = registerManager.allocateRegister();
-        final String resultReg = registerManager.allocateRegister();
-        try {
-            // ENFORCE: Array indexing requires a pointer type
-            Type arrayType = getExpressionType(arrayIndex.getArray());
-            if (!arrayType.isPtr()) {
-                throw new IllegalArgumentException(
-                        "Array indexing requires pointer type, but got: " + arrayType +
-                                " (use type conversion like byte@ptr for raw pointers)"
-                );
-            }
-
-            PointerType ptrType = arrayType.asPointer();
-            Type elementType = ptrType.getElementType();
-            int elementSize = elementType.getSize();
-
-            // Calculate address: array + (index * elementSize)
-            emitter.instruction("LDI", offsetReg, String.valueOf(elementSize));
-            emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
-            emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
-
-            // Load based on element type
-            switch (elementType) {
-                case PrimitiveType.BYTE -> emitter.loadByte(resultReg, addrReg);
-                case PrimitiveType.INT -> emitter.loadInt(resultReg, addrReg);
-                case PrimitiveType.LONG -> emitter.load(resultReg, addrReg);
-                default -> {
-                    if (elementType.isPtr()) {
-                        emitter.load(resultReg, addrReg); // Pointers stored as longs
-                    } else {
-                        throw new IllegalArgumentException("Unsupported array element type: " + elementType);
-                    }
-                }
-            }
+            calculateArrayElementAddress(arrayIndex, arrayReg, indexReg, offsetReg, addrReg);
+            loadArrayElementValue(arrayIndex, addrReg, resultReg);
             return resultReg;
         } finally {
-            registerManager.freeRegister(offsetReg);
-            registerManager.freeRegister(addrReg);
+            freeRegisters(offsetReg, addrReg);
         }
     }
 
-    private Type getExpressionType(Expression expression) {
-        if (expression instanceof Variable var) {
-            return var.getType();
-        } else if (expression instanceof Literal<?> lit) {
-            return lit.getType();
-        } else if (expression instanceof TypeConversion typeConv) {
-            return typeConv.getTargetType();
-        } else if (expression instanceof BinaryOp binOp) {
-            return getExpressionType(binOp.getLeft());
-        } else if (expression instanceof Dereference deref) {
-            return deref.getType();
-        } else if (expression instanceof ArrayIndex arrayIdx) {
-            Type arrayType = getExpressionType(arrayIdx.getArray());
-            if (arrayType.isPtr()) {
-                return arrayType.asPointer().getElementType();
-            }
-            return PrimitiveType.LONG;
+    private void validateArrayIndexingType(ArrayIndex arrayIndex) {
+        Type arrayType = Type.getExpressionType(arrayIndex.getArray());
+        if (!arrayType.isPtr()) {
+            throw new IllegalArgumentException(
+                    "Array indexing requires pointer type, but got: " + arrayType +
+                            " (use type conversion like byte@ptr for raw pointers)"
+            );
         }
-        // Default fallback
-        return PrimitiveType.LONG;
+    }
+
+    private void calculateArrayElementAddress(
+            ArrayIndex arrayIndex,
+            String arrayReg,
+            String indexReg,
+            String offsetReg,
+            String addrReg) {
+
+        PointerType ptrType = Type.getExpressionType(arrayIndex.getArray()).asPointer();
+        int elementSize = ptrType.getElementType().getSize();
+
+        emitter.instruction("LDI", offsetReg, String.valueOf(elementSize));
+        emitter.instruction("MUL", offsetReg, indexReg, offsetReg);
+        emitter.instruction("ADD", addrReg, arrayReg, offsetReg);
+    }
+
+    private void loadArrayElementValue(ArrayIndex arrayIndex, String addrReg, String resultReg) {
+        Type elementType = Type.getExpressionType(arrayIndex.getArray()).asPointer().getElementType();
+        emitter.generateTypedLoad(resultReg, addrReg, elementType);
+    }
+
+    private void freeRegisters(String... registers) {
+        for (String reg : registers) {
+            if (reg != null) {
+                registerManager.freeRegister(reg);
+            }
+        }
     }
 }

@@ -6,7 +6,7 @@ import javafx.stage.Stage;
 import org.lpc.utils.Logger;
 
 public final class Main extends Application {
-    public static final String EXECUTED_FILE = "/test/test_typing.tc";
+    public static final String EXECUTED_FILE = "/test/test_struct.tc";
 
     private final PipelineExecutor pipelineExecutor = new PipelineExecutor();
 
