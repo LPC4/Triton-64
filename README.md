@@ -13,6 +13,9 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 - **Visual Debugging Tools**: Real-time CPU and memory viewers
 - **ROM System**: Bootable ROM with integrated assembly code
 
+## Examples
+
+![Example](examples/example.png)
 ![Framebuffer](examples/test_charbuffer.gif)
 ![Malloc](examples/test_malloc.gif)
 
@@ -250,12 +253,6 @@ while (i < 10) {
 }
 ```
 
-#### Function Call with Many Arguments
-
-```tric
-var result = functionWithManyArgs(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-```
-
 ### Type System Characteristics
 
 TriC's type system has several important characteristics to understand:
@@ -413,16 +410,8 @@ func main() {
         j = j + 1
     }
 
-    ; Function with many arguments
-    var result = manyArgs(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-    
     ; Return the total of all operations
     return z + fact + first
-}
-
-; Function with unlimited arguments
-func manyArgs(a, b, c, d, e, f, g, h, i, j) {
-    return a + b + c + d + e + f + g + h + i + j
 }
 
 ; Function with return value

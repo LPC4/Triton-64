@@ -26,5 +26,4 @@ public class VirtualMachine {
         timerDevice = new TimerDevice(MemoryMap.MMIO_BASE + KeyboardDevice.SIZE);
         ioDeviceManager.addDevices(keyboardDevice, timerDevice);
     }
-
 }

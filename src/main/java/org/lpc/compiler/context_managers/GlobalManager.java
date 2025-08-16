@@ -13,6 +13,7 @@ import java.util.*;
  * Uses natural alignment (1 for byte, 4 for int, 8 for long) to minimize memory usage.
  */
 public class GlobalManager {
+    private static final int GLOBAL_ALIGNMENT = 8;
     private final InstructionGenerator emitter;
     private final RegisterManager registerManager;
     private final Map<String, GlobalVariableInfo> globals = new LinkedHashMap<>();
@@ -38,7 +39,7 @@ public class GlobalManager {
         }
 
         // Ensure the total size is aligned for proper memory management
-        int totalSize = alignOffset(currentOffset, 8);
+        int totalSize = alignOffset(currentOffset, GLOBAL_ALIGNMENT);
 
         allocateDataSection(totalSize);
 

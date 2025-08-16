@@ -2219,11 +2219,11 @@ main:
     PUSH t1
     PUSH t0
     ; Evaluating argument 0
-    ; Literal value: 4
-    LDI t2, 4
+    ; Literal value: 3
+    LDI t2, 3
     ; Evaluating argument 1
-    ; Literal value: 4
-    LDI t3, 4
+    ; Literal value: 8
+    LDI t3, 8
     PUSH t3
     PUSH t2
     JAL calloc, ra
@@ -2363,6 +2363,30 @@ main:
     ADD t3, fp, t3
     LD t4, t3
     ST t2, t4
+    ; Array indexing operation
+    ; Struct field access: c
+    ; Variable access: s
+    LDI t0, -8
+    ADD t0, fp, t0
+    LD t1, t0
+    LDI t2, 16
+    ADD t2, t1, t2
+    LD t0, t2
+    ; Literal value: 0
+    LDI t1, 0
+    LDI t3, 8
+    MUL t3, t1, t3
+    ADD t4, t0, t3
+    LD t2, t4
+    ; Literal value: 0
+    LDI t0, 0
+    ; Literal value: 246267631
+    LDI t1, 246267631
+    ; Array index assignment
+    LDI t3, 4
+    MUL t3, t0, t3
+    ADD t4, t2, t3
+    SI t4, t1
     ; While loop
 loop_75:
     ; Literal value: 1

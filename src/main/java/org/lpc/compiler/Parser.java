@@ -11,6 +11,8 @@ import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
 import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.*;
+
+import java.text.ParseException;
 import java.util.*;
 import java.util.Objects;
 
@@ -519,6 +521,7 @@ public class Parser {
 
     private Expression parsePostfix(Type expectedType) {
         Expression expr = parsePrimary(expectedType);
+
         while (true) {
             // Handle array indexing
             if (match("[")) {
@@ -529,29 +532,8 @@ public class Parser {
             // Handle struct field access
             else if (match(".")) {
                 String fieldName = consume();
-                // Create the field access node
-                StructFieldAccess fieldAccess = new StructFieldAccess(expr, fieldName);
-
-                // Try to resolve the field type immediately
-                Type baseType = Type.getExpressionType(expr);
-                if (baseType != null) {
-                    // If base is a pointer, get the element type
-                    Type structType = baseType.isPtr() ? baseType.asPointer().getElementType() : baseType;
-
-                    if (structType.isStruct()) {
-                        StructType structDef = structType.asStruct();
-                        // Look up the field
-                        for (StructType.Field field : structDef.getFields()) {
-                            if (field.name().equals(fieldName)) {
-                                fieldAccess.setFieldType(field.type());
-                                fieldAccess.setFieldOffset(structDef.getFieldOffset(fieldName));
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                expr = fieldAccess;
+                // Resolve field type and offset during parsing
+                expr = createFieldAccess(expr, fieldName);
             }
             // Handle function calls
             else if (check("(") && expr instanceof Variable var) {
@@ -561,6 +543,32 @@ public class Parser {
             }
         }
         return expr;
+    }
+
+    private StructFieldAccess createFieldAccess(Expression baseExpr, String fieldName) {
+        Type baseType = Type.getExpressionType(baseExpr);
+        if (baseType == null) {
+            throw new RuntimeException("Cannot resolve type for base expression in field access: " + baseExpr);
+        }
+
+        // Dereference if pointer
+        Type structType = baseType.isPtr() ? baseType.asPointer().getElementType() : baseType;
+
+        if (!structType.isStruct()) {
+            throw new RuntimeException("Cannot access field '" + fieldName + "' on non-struct type: " + structType);
+        }
+
+        StructType structDef = structType.asStruct();
+
+        // Look up field
+        for (StructType.Field field : structDef.getFields()) {
+            if (field.name().equals(fieldName)) {
+                int offset = structDef.getFieldOffset(fieldName);
+                return new StructFieldAccess(baseExpr, fieldName, field.type(), offset);
+            }
+        }
+
+        throw new RuntimeException("Struct '" + structDef.getName() + "' has no field '" + fieldName + "'");
     }
 
     private Expression parsePrimary(Type expectedType) {
@@ -638,15 +646,9 @@ public class Parser {
                 throw new RuntimeException("Unknown primitive type for stride: " + type);
             }
             return stride;
-        } else if (type instanceof PointerType ptr) {
-            Type base = ptr.getElementType();
-            // For pointers: stride = base type's stride, but if base is pointer -> treat as long (8)
-            if (base instanceof PointerType) {
-                return 8; // Pointers-to-pointers use long stride (8 bytes)
-            }
-            long baseStride = computeStride(base);
-            sizeTable.put(type, baseStride); // Cache result
-            return baseStride;
+        } else if (type instanceof PointerType) {
+            sizeTable.put(type, 8L); // Pointers are always 8 bytes on 64-bit systems
+            return 8L;
         } else {
             throw new RuntimeException("Cannot compute stride for type: " + type);
         }

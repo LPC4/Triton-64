@@ -1,4 +1,4 @@
-import memory ; import from memory.tlib
+import memory
 
 global test_ptr1 = 0
 global test_ptr2 = 0

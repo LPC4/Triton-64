@@ -3,32 +3,44 @@ import memory
 struct TestStruct {
     var a: long
     var b: byte[]
-    var c: int[]*
+    var c: int[]* ; No difference between [] and * here, both are pointers to arrays, it's just a matter of style
 }
 
 func main(): byte {
+    ; know that malloc returns a long, aka a raw ptr, this gets casted to a TestStruct*
     var s: TestStruct* = malloc(strideOf(TestStruct))
-    s.a = 0x0FBEADDEEFBEADDE
-    s.b = calloc(8, strideOf(byte))
-    @s.b = [1, 2, 3, 4]
+    s.a = 0x0FBEADDEEFBEADDE ; set the first field of the struct
+    s.b = calloc(8, strideOf(byte)) ; allocate 8 bytes for the byte array
+    @s.b = [1, 2, 3, 4] ; s.b is a pointer, now we set the first 4 bytes to an array literal with @ syntax
 
     s.b[4] = 5
     s.b[5] = s.b[4] + 1
-
-    @(s.b + 6) = 7
+    @(s.b + 6) = 7              ; can also use raw pointer arithmetic
     s.b[7] = byte@(s.b + 6) + 1 ; can also be done without the byte "cast"
 
-    s.c = calloc(4, strideOf(int[]))
+    ; allocate an array of pointers to int arrays
+    s.c = calloc(3, strideOf(int[]))
 
+    ; alloc child1, calloc returns a long, which is a raw pointer
+    ; we cast it to an int* implicitly
     var child1: int* = calloc(4, strideOf(int))
     @child1 = [0xFF, 0xAA, 0xFF, 0xAA]
 
-    var child2 = int* calloc(4, strideOf(int)) ; cast and infer type
+    ; alloc child2, again calloc returns a long, which is a raw pointer
+    ; we cast it to an int* explicitly, variable type gets inferred
+    var child2 = int* calloc(4, strideOf(int))
     @child2 = [0xAA, 0xBB, 0xCC, 0xDD]
 
+    ; store the pointers in the array
     @s.c = [child1, child2, child1]
-
+    s.c[0][0] = 0x0EADBEEF ; modify the first element of the first child array
+    ; infinite loop to keep the program running
+    ; you can inspect the memory in the debugger
+    ; this will all be shown in the heap view
     while(1) {}
-
     return 1
 }
+
+
+
+

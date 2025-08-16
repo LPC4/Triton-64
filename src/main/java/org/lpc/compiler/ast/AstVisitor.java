@@ -34,3 +34,4 @@ public interface AstVisitor<T> {
     T visit(TypeConversion typeConversion);
     T visit(StructFieldAccess structAccess);
 }
+
