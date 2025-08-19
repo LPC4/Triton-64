@@ -40,6 +40,7 @@ public final class InstructionSet {
     public static final int OP_SHL = 0x27; // SHL rdest, rsrc1, rsrc2        ; Logical shift left
     public static final int OP_SHR = 0x28; // SHR rdest, rsrc1, rsrc2        ; Logical shift right
     public static final int OP_SAR = 0x29; // SAR rdest, rsrc1, rsrc2        ; Arithmetic shift right
+    public static final int OP_MOD = 0x2A; // MOD rdest, rsrc1, rsrc2        ; Modulus (remainder)
 
     // Control flow
     public static final int OP_JMP = 0x30; // JMP rdest                      ; PC = rdest

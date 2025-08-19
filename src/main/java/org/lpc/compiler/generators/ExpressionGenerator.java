@@ -284,14 +284,11 @@ public class ExpressionGenerator {
     private String handleArrayIndexing(ArrayIndex arrayIndex, String arrayReg, String indexReg) {
         validateArrayIndexingType(arrayIndex);
 
-        String offsetReg = null;
-        String addrReg = null;
+        String offsetReg = registerManager.allocateRegister();
+        String addrReg = registerManager.allocateRegister();
         String resultReg = registerManager.allocateRegister();
 
         try {
-            offsetReg = registerManager.allocateRegister();
-            addrReg = registerManager.allocateRegister();
-
             calculateArrayElementAddress(arrayIndex, arrayReg, indexReg, offsetReg, addrReg);
             loadArrayElementValue(arrayIndex, addrReg, resultReg);
             return resultReg;

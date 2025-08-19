@@ -1,0 +1,12 @@
+import console
+import memory
+
+func kernel_main() {
+
+}
+
+; Entry point that the VM calls
+func main() {
+    kernel_main()
+    return 0
+}

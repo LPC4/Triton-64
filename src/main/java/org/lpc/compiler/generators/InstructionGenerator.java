@@ -200,6 +200,7 @@ public class InstructionGenerator {
             case SHL -> instruction("SHL", resultReg, leftReg, rightReg);
             case SHR -> instruction("SHR", resultReg, leftReg, rightReg);
             case SAR -> instruction("SAR", resultReg, leftReg, rightReg);
+            case MOD -> instruction("MOD", resultReg, leftReg, rightReg);
             default -> throw new IllegalArgumentException("Unsupported binary operator: " + op);
         }
     }

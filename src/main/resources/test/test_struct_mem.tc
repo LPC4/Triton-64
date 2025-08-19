@@ -1,0 +1,15 @@
+import memory
+
+struct Test {
+    var a: int
+    var b: int
+}
+
+func main(): byte {
+    var t: Test* = malloc(strideOf(Test))
+    t.a = 0x0AAAAAAA
+    t.b = 0x0BBBBBBB
+    var seperator: long* = malloc(8 * 10)
+
+    while (1) {}
+}

@@ -62,6 +62,7 @@ public class Cpu {
             case InstructionSet.OP_SHL -> set(dest, get(src1) << get(src2));
             case InstructionSet.OP_SHR -> set(dest, get(src1) >>> get(src2));
             case InstructionSet.OP_SAR -> set(dest, get(src1) >> get(src2));
+            case InstructionSet.OP_MOD -> set(dest, get(src1) % get(src2));
             case InstructionSet.OP_JMP -> programCounter = get(dest);
             case InstructionSet.OP_JZ  -> { if (get(src1) == 0) programCounter = get(dest); }
             case InstructionSet.OP_JNZ -> { if (get(src1) != 0) programCounter = get(dest); }

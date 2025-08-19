@@ -64,7 +64,7 @@ public class Linker {
 
     private String loadLibrary(String name) {
         try {
-            Path libPath = Paths.get("src/main/resources/lib/" + name + ".tlib");
+            Path libPath = Paths.get("src/main/resources/kernel/" + name + ".tlib");
             return Files.readString(libPath);
         } catch (IOException e) {
             System.err.println("Warning: Could not load library " + name + ".tlib");

@@ -12,7 +12,6 @@ import org.lpc.compiler.ast.parent.Program;
 import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.*;
 
-import java.text.ParseException;
 import java.util.*;
 import java.util.Objects;
 
@@ -21,16 +20,20 @@ public class Parser {
     private int position = 0;
     private final SymbolTable symbolTable = new SymbolTable();
     private final Map<String, Type> typeTable = new HashMap<>();
-    private final Map<Type, Long> sizeTable = new HashMap<>();
+    private final Map<Type, Integer> sizeTable = new HashMap<>();
     private Type currentFunctionReturnType = PrimitiveType.LONG;
+    private boolean inPass1 = true;
 
     public Parser(Lexer lexer) {
         Objects.requireNonNull(lexer, "Lexer cannot be null");
         this.tokens = lexer.tokenize();
         // Initialize primitive strides
-        sizeTable.put(PrimitiveType.BYTE, 1L);
-        sizeTable.put(PrimitiveType.INT, 4L);
-        sizeTable.put(PrimitiveType.LONG, 8L);
+        sizeTable.put(PrimitiveType.BYTE, 1);
+        sizeTable.put(PrimitiveType.INT, 4);
+        sizeTable.put(PrimitiveType.LONG, 8);
+        typeTable.put("byte", PrimitiveType.BYTE);
+        typeTable.put("int", PrimitiveType.INT);
+        typeTable.put("long", PrimitiveType.LONG);
     }
 
     public Program parse() {
@@ -43,13 +46,23 @@ public class Parser {
 
         parsePass1(structs, functionSignatures, bodyStartPositions);
 
+        // Verify all structs are complete after Pass 1
+        for (Type type : typeTable.values()) {
+            if (type instanceof StructType struct && !struct.isComplete()) {
+                throw new RuntimeException("Struct '" + struct.getName() + "' is used but never defined");
+            }
+        }
+        inPass1 = false; // Switch to Pass 2
+
         // Reset position for second pass
         position = 0;
 
         // Pass 2: Parse actual code with full type information
         try {
             return parsePass2(structs, functionSignatures, bodyStartPositions);
-        } finally { symbolTable.exitScope();}
+        } finally {
+            symbolTable.exitScope();
+        }
     }
 
     private void parsePass1(List<StructDef> structs, List<FunctionDef> functionSignatures, List<Integer> bodyStartPositions) {
@@ -57,7 +70,7 @@ public class Parser {
             if (match("struct")) {
                 StructDef structDef = parseStruct();
                 structs.add(structDef);
-                typeTable.put(structDef.getName(), new StructType(structDef.getName(), structDef.getFields()));
+                // Note: The StructType is already added to typeTable in parseStruct()
             } else if (match("func")) {
                 FunctionDef sig = parseFunctionSignature();
                 functionSignatures.add(sig);
@@ -73,7 +86,6 @@ public class Parser {
                 consume();
             }
         }
-
     }
 
     private Program parsePass2(List<StructDef> structs, List<FunctionDef> functionSignatures, List<Integer> bodyStartPositions) {
@@ -210,6 +222,25 @@ public class Parser {
     private StructDef parseStruct() {
         symbolTable.enterScope();
         String name = consume();
+
+        // Reuse existing StructType placeholder if available
+        StructType structType;
+        if (typeTable.containsKey(name)) {
+            Type existing = typeTable.get(name);
+            if (existing instanceof StructType) {
+                structType = (StructType) existing;
+                // Verify it's not already complete (would be a redefinition error)
+                if (structType.isComplete()) {
+                    throw new RuntimeException("Struct '" + name + "' redefined");
+                }
+            } else {
+                throw new RuntimeException("Type name conflict: " + name);
+            }
+        } else {
+            structType = new StructType(name);
+            typeTable.put(name, structType);
+        }
+
         consume("{");
         List<StructType.Field> fields = new ArrayList<>();
 
@@ -230,11 +261,14 @@ public class Parser {
         }
         consume("}");
 
+        // Finalize struct definition
+        structType.setFields(fields);
+
         // Calculate struct size
-        long totalSize = fields.stream()
-                .mapToLong(field -> field.type().getSize())
+        int totalSize = fields.stream()
+                .mapToInt(field -> field.type().getSize())
                 .sum();
-        sizeTable.put(new StructType(name, fields), totalSize);
+        sizeTable.put(structType, totalSize);
 
         symbolTable.exitScope();
         return new StructDef(name, fields);
@@ -504,7 +538,7 @@ public class Parser {
         }
         // Handle type casts (byte 5, int x) ONLY when NOT followed by @
         // (Typed dereference is handled in parsePrimary)
-        if (check("byte") || check("int") || check("long")) {
+        if (checkTokenIsType()) {
             // Check if this is actually a typed dereference (handled in primary)
             if (position + 1 < tokens.size() && tokens.get(position + 1).equals("@")) {
                 // This will be handled in parsePrimary, so we don't consume here
@@ -630,25 +664,25 @@ public class Parser {
         consume("(");
         Type type = parseVariableType();
         consume(")");
-        long stride = computeStride(type);
-        return Literal.ofLong(stride);
+        int stride = computeStride(type);
+        return Literal.ofInt(stride);
     }
 
-    private long computeStride(Type type) {
+    private int computeStride(Type type) {
         // Check if already computed (for recursive cases)
         if (sizeTable.containsKey(type)) {
             return sizeTable.get(type);
         }
 
         if (type instanceof PrimitiveType) {
-            Long stride = sizeTable.get(type);
+            Integer stride = sizeTable.get(type);
             if (stride == null) {
                 throw new RuntimeException("Unknown primitive type for stride: " + type);
             }
             return stride;
         } else if (type instanceof PointerType) {
-            sizeTable.put(type, 8L); // Pointers are always 8 bytes on 64-bit systems
-            return 8L;
+            sizeTable.put(type, 8); // Pointers are always 8 bytes on 64-bit systems
+            return 8;
         } else {
             throw new RuntimeException("Cannot compute stride for type: " + type);
         }
@@ -788,7 +822,16 @@ public class Parser {
                 case "byte" -> PrimitiveType.BYTE;
                 case "int" -> PrimitiveType.INT;
                 case "long" -> PrimitiveType.LONG;
-                default -> throw new RuntimeException("Unknown type: " + typeToken);
+                default -> {
+                    if (inPass1) {
+                        // Create placeholder for forward reference
+                        StructType placeholder = new StructType(typeToken);
+                        typeTable.put(typeToken, placeholder);
+                        yield placeholder;
+                    } else {
+                        throw new RuntimeException("Unknown type: " + typeToken);
+                    }
+                }
             };
         }
 
@@ -861,6 +904,10 @@ public class Parser {
         }
         String token = peek();
         return token.startsWith("'") && token.endsWith("'") && token.length() >= 3;
+    }
+
+    private boolean checkTokenIsType() {
+        return typeTable.containsKey(peek());
     }
 
     /**

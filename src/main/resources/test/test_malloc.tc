@@ -69,22 +69,6 @@ func test_edge_cases() {
     return ptr_calloc
 }
 
-func test_heap_stats() {
-    ; Test 11: Get heap statistics
-    var total_free_addr = malloc(8)
-    var total_allocated_addr = malloc(8)
-    var free_blocks_addr = malloc(8)
-
-    get_heap_stats(total_free_addr, total_allocated_addr, free_blocks_addr)
-
-    ; Statistics will be visible in memory at these addresses
-    var stats_free = @total_free_addr
-    var stats_allocated = @total_allocated_addr
-    var stats_blocks = @free_blocks_addr
-
-    return stats_free
-}
-
 func main() {
     ; Sequential tests with clear memory patterns
 
@@ -105,9 +89,6 @@ func main() {
 
     ; Final separator
     var separator3 = 0xEADBEEFCAFEBABE
-
-    ; PHASE 4: Heap statistics
-    var heap_stats = test_heap_stats()
 
     ; Final marker to indicate test completion
     var test_complete = 0x234567890ABCDEF

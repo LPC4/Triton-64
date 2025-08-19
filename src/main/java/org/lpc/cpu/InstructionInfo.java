@@ -28,6 +28,7 @@ public class InstructionInfo {
             Map.entry("SHL", InstructionSet.OP_SHL),
             Map.entry("SHR", InstructionSet.OP_SHR),
             Map.entry("SAR", InstructionSet.OP_SAR),
+            Map.entry("MOD", InstructionSet.OP_MOD),
             Map.entry("JMP", InstructionSet.OP_JMP),
             Map.entry("JZ" , InstructionSet.OP_JZ),
             Map.entry("JNZ", InstructionSet.OP_JNZ),
@@ -59,7 +60,7 @@ public class InstructionInfo {
             Map.entry("SHL", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("SHR", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("SAR", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER, OperandType.REGISTER}),
-            Map.entry("CMP", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER, OperandType.REGISTER}),
+            Map.entry("MOD", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("JMP", new OperandType[]{OperandType.REGISTER}),
             Map.entry("JZ" , new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
             Map.entry("JNZ", new OperandType[]{OperandType.REGISTER, OperandType.REGISTER}),
@@ -92,6 +93,7 @@ public class InstructionInfo {
             put(InstructionSet.OP_SHL, "SHL");
             put(InstructionSet.OP_SHR, "SHR");
             put(InstructionSet.OP_SAR, "SAR");
+            put(InstructionSet.OP_MOD, "MOD");
             put(InstructionSet.OP_JMP, "JMP");
             put(InstructionSet.OP_JZ , "JZ");
             put(InstructionSet.OP_JNZ, "JNZ");

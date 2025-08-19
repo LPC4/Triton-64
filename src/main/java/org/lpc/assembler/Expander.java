@@ -36,7 +36,7 @@ public class Expander {
 
     // Supported three-register operations
     private static final Set<String> IMMEDIATE_EXPANDED_OPERATIONS = Set.of(
-            "ADD", "SUB", "MUL", "DIV", "AND", "OR", "XOR", "SHL", "SHR", "SAR", "CMP"
+            "ADD", "SUB", "MUL", "DIV", "AND", "OR", "XOR", "SHL", "SHR", "SAR", "MOD"
     );
 
     // Supported conditional jump operations

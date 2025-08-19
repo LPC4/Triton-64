@@ -3,15 +3,18 @@ import memory
 struct TestStruct {
     var a: long
     var b: byte[]
-    var c: int[]* ; No difference between [] and * here, both are pointers to arrays, it's just a matter of style
+    var c: int[]* ; No difference between [] and * here, both are pointers, it's just a matter of style
 }
 
 func main(): byte {
     ; know that malloc returns a long, aka a raw ptr, this gets casted to a TestStruct*
     var s: TestStruct* = malloc(strideOf(TestStruct))
-    s.a = 0x0FBEADDEEFBEADDE ; set the first field of the struct
-    s.b = calloc(8, strideOf(byte)) ; allocate 8 bytes for the byte array
-    @s.b = [1, 2, 3, 4] ; s.b is a pointer, now we set the first 4 bytes to an array literal with @ syntax
+    if (s == 0) { return 0 }
+
+    s.a = 0x0FBEADDEEFBEADDE        ; set the first field of the struct
+    s.b = malloc(4 * strideOf(byte)) ; allocate 8 bytes for the byte array
+    if (s.b == 0) { return 1 }       ; check if malloc was successful
+    @s.b = [1, 2, 3, 4]             ; s.b is a pointer, now we set the first 4 bytes to an array literal with @ syntax
 
     s.b[4] = 5
     s.b[5] = s.b[4] + 1
@@ -19,16 +22,20 @@ func main(): byte {
     s.b[7] = byte@(s.b + 6) + 1 ; can also be done without the byte "cast"
 
     ; allocate an array of pointers to int arrays
-    s.c = calloc(3, strideOf(int[]))
+
+    s.c = malloc(4 * strideOf(int[]))
+    if (s.c == 0) { return 2 } ; check if malloc was successful
 
     ; alloc child1, calloc returns a long, which is a raw pointer
     ; we cast it to an int* implicitly
-    var child1: int* = calloc(4, strideOf(int))
+    var child1: int* = malloc(4 * strideOf(int))
+    if (child1 == 0) { return 3 } ; check if malloc was successful
     @child1 = [0xFF, 0xAA, 0xFF, 0xAA]
 
     ; alloc child2, again calloc returns a long, which is a raw pointer
     ; we cast it to an int* explicitly, variable type gets inferred
-    var child2 = int* calloc(4, strideOf(int))
+    var child2 = int* malloc(4 * strideOf(int))
+    if (child2 == 0) { return 4 } ; check if malloc was successful
     @child2 = [0xAA, 0xBB, 0xCC, 0xDD]
 
     ; store the pointers in the array
@@ -37,8 +44,8 @@ func main(): byte {
     ; infinite loop to keep the program running
     ; you can inspect the memory in the debugger
     ; this will all be shown in the heap view
-    while(1) {}
-    return 1
+    ;while(1) {}
+    return 100
 }
 
 
