@@ -394,6 +394,7 @@ func main() {
     @p = 0xFF                ; store byte
     p[1] = 0xAA              ; store next byte
     var b = p[1]             ; load byte
+    @p = "abc"               ; store string literal (byte array)
 
     var arr: int[] = malloc(32)  ; array of ints
     @arr = [1, 2, 3, 4]          ; store array literal

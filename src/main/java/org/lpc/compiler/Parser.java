@@ -6,10 +6,8 @@ import org.lpc.compiler.types.StructType;
 import org.lpc.compiler.types.Type;
 import org.lpc.compiler.types.PointerType;
 import org.lpc.compiler.ast.expressions.*;
-import org.lpc.compiler.ast.expressions.Expression;
 import org.lpc.compiler.ast.parent.FunctionDef;
 import org.lpc.compiler.ast.parent.Program;
-import org.lpc.compiler.ast.statements.Statement;
 import org.lpc.compiler.ast.statements.*;
 
 import java.util.*;
@@ -376,9 +374,6 @@ public class Parser {
         }
         // Continue parsing the expression with the left side
         Expression expr = parseExpressionRest(left);
-        if (expr instanceof FunctionCall) {
-            return new ExpressionStatement(expr);
-        }
         return new ExpressionStatement(expr);
     }
 
@@ -647,6 +642,11 @@ public class Parser {
             long charValue = parseCharLiteral(charToken);
             return createLiteral(charValue, expectedType);
         }
+        if (match("\"")) {
+            String strToken = consume();
+            consume("\"");
+            return createByteArrayFromString(strToken);
+        }
         if (checkTokenIsIdentifier()) {
             String name = consume();
             // Look up the type in the symbol table
@@ -662,10 +662,24 @@ public class Parser {
 
     private Expression parseStrideOf() {
         consume("(");
-        Type type = parseVariableType();
-        consume(")");
-        int stride = computeStride(type);
-        return Literal.ofInt(stride);
+
+        // Check for string literal
+        if (check("\"")) {
+            consume("\"");
+            String strContent = consume();
+            consume("\"");
+            consume(")");
+
+            int actualLength = processEscapeSequences(strContent).length();
+            return Literal.ofInt(actualLength);
+        }
+        // Otherwise, it's a type
+        else {
+            Type type = parseVariableType();
+            consume(")");
+            int stride = computeStride(type);
+            return Literal.ofInt(stride);
+        }
     }
 
     private int computeStride(Type type) {
@@ -681,7 +695,7 @@ public class Parser {
             }
             return stride;
         } else if (type instanceof PointerType) {
-            sizeTable.put(type, 8); // Pointers are always 8 bytes on 64-bit systems
+            sizeTable.put(type, 8);
             return 8;
         } else {
             throw new RuntimeException("Cannot compute stride for type: " + type);
@@ -725,6 +739,44 @@ public class Parser {
         }
         consume("}");
         return new AsmStatement(asmCode.toString());
+    }
+
+    private String processEscapeSequences(String str) {
+        StringBuilder result = new StringBuilder();
+        boolean isEscaping = false;
+
+        for (int i = 0; i < str.length(); i++) {
+            char c = str.charAt(i);
+
+            if (isEscaping) {
+                switch (c) {
+                    case 'n': result.append('\n'); break;
+                    case 't': result.append('\t'); break;
+                    case 'r': result.append('\r'); break;
+                    case 'b': result.append('\b'); break;
+                    case 'f': result.append('\f'); break;
+                    case '\\': result.append('\\'); break;
+                    case '\'': result.append('\''); break;
+                    case '\"': result.append('\"'); break;
+                    case '0': result.append('\0'); break;
+                    default:
+                        // If it's not a recognized escape, keep the backslash
+                        result.append('\\');
+                        result.append(c);
+                }
+                isEscaping = false;
+            } else if (c == '\\') {
+                isEscaping = true;
+            } else {
+                result.append(c);
+            }
+        }
+
+        if (isEscaping) {
+            result.append('\\');
+        }
+
+        return result.toString();
     }
 
     private long parseCharLiteral(String charToken) {
@@ -788,6 +840,17 @@ public class Parser {
             }
             return content.charAt(0);
         }
+    }
+
+    private ArrayLiteral createByteArrayFromString(String strToken) {
+        final Type STRING_TYPE = PrimitiveType.BYTE;
+        List<Expression> elements = new ArrayList<>();
+        for (char c : strToken.toCharArray()) {
+            elements.add(Literal.ofByte((byte) c));
+        }
+        // Add a null terminator
+        elements.add(Literal.ofByte((byte) 0));
+        return new ArrayLiteral(elements, STRING_TYPE);
     }
 
     private Expression parseArrayLiteral(Type expectedType) {

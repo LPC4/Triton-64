@@ -1,44 +1,43 @@
 struct BlockHeader {
-    var size: int           ; total size of this block (including header + payload)
-    var next: BlockHeader*  ; pointer to the next free block
+    var size: int
+    var next: BlockHeader*
 }
 
-global HEAP_START: long = 0x18020000    ; start of the heap area
-global HEAP_SIZE: long = 0x8000000      ; 128 MiB heap size
-global HEADER_SIZE: int = strideOf(BlockHeader)
-global MIN_BLOCK_SIZE: int = 16
-global ALIGNMENT: int = 8
+global __HEAP_START: long = 0x18020000
+global __HEAP_SIZE: long = 0x8000000
+global __HEADER_SIZE: int = strideOf(BlockHeader)
+global __MIN_BLOCK_SIZE: int = 16
+global __ALIGNMENT: int = 8
+global __freeListHead: BlockHeader* = 0
 
-global freeListHead: BlockHeader* = 0
-
-func align_up(size: long, alignment: long): long {
+func __align_up(size: long, alignment: long): long {
     return size + alignment - (size % alignment)
 }
 
-func init_heap() {
-    if (freeListHead == 0) {
-        freeListHead = HEAP_START
-        freeListHead.size = HEAP_SIZE
-        freeListHead.next = 0
+func __init_heap() {
+    if (__freeListHead == 0) {
+        __freeListHead = __HEAP_START
+        __freeListHead.size = __HEAP_SIZE
+        __freeListHead.next = 0
     }
 }
 
-func unlink_block(block: BlockHeader*, prev: BlockHeader*) {
+func __unlink_block(block: BlockHeader*, prev: BlockHeader*) {
     if (prev == 0) {
-        freeListHead = block.next
+        __freeListHead = block.next
     } else {
         prev.next = block.next
     }
 }
 
-func split_block(block: BlockHeader*, needed_size: long) {
+func __split_block(block: BlockHeader*, needed_size: long) {
     var remaining: long = block.size - needed_size
 
-    if (remaining >= MIN_BLOCK_SIZE) {
+    if (remaining >= __MIN_BLOCK_SIZE) {
         var new_block: BlockHeader* = BlockHeader*(block + needed_size)
         new_block.size = remaining
-        new_block.next = freeListHead
-        freeListHead = new_block
+        new_block.next = __freeListHead
+        __freeListHead = new_block
 
         block.size = needed_size
         block.next = 0
@@ -47,23 +46,39 @@ func split_block(block: BlockHeader*, needed_size: long) {
     }
 }
 
+func __coalesce_free_blocks() {
+    if (__freeListHead == 0) { return }
+
+    var current: BlockHeader* = __freeListHead
+
+    while (current != 0) {
+        var next: BlockHeader* = current.next
+        if (next != 0 && long(next) == long(current) + current.size) {
+            current.size = current.size + next.size
+            current.next = next.next
+        } else {
+            current = next
+        }
+    }
+}
+
 func malloc(size_req: long): long {
     if (size_req == 0) {
         return 0
     }
 
-    init_heap()
+    __init_heap()
 
-    var total_needed: long = align_up(size_req + HEADER_SIZE, ALIGNMENT)
+    var total_needed: long = __align_up(size_req + __HEADER_SIZE, __ALIGNMENT)
 
-    var current: BlockHeader* = freeListHead
+    var current: BlockHeader* = __freeListHead
     var prev: BlockHeader* = 0
 
     while (current != 0) {
         if (current.size >= total_needed) {
-            unlink_block(current, prev)
-            split_block(current, total_needed)
-            return long(current) + HEADER_SIZE
+            __unlink_block(current, prev)
+            __split_block(current, total_needed)
+            return long(current) + __HEADER_SIZE
         }
 
         prev = current
@@ -76,11 +91,11 @@ func malloc(size_req: long): long {
 func free(ptr: long) {
     if (ptr == 0) { return }
 
-    var block: BlockHeader* = BlockHeader*(ptr - HEADER_SIZE)
-    block.next = freeListHead
-    freeListHead = block
+    var block: BlockHeader* = BlockHeader*(ptr - __HEADER_SIZE)
+    block.next = __freeListHead
+    __freeListHead = block
 
-    coalesce_free_blocks()
+    __coalesce_free_blocks()
 }
 
 func realloc(ptr: long, new_size: long): long {
@@ -93,9 +108,9 @@ func realloc(ptr: long, new_size: long): long {
         return 0
     }
 
-    var block: BlockHeader* = BlockHeader*(ptr - HEADER_SIZE)
-    var current_size: long = block.size - HEADER_SIZE
-    var aligned_new_size: long = align_up(new_size, ALIGNMENT)
+    var block: BlockHeader* = BlockHeader*(ptr - __HEADER_SIZE)
+    var current_size: long = block.size - __HEADER_SIZE
+    var aligned_new_size: long = __align_up(new_size, __ALIGNMENT)
 
     if (aligned_new_size <= current_size) {
         return ptr
@@ -136,20 +151,4 @@ func calloc(count: long, size: long): long {
     }
 
     return ptr
-}
-
-func coalesce_free_blocks() {
-    if (freeListHead == 0) { return }
-
-    var current: BlockHeader* = freeListHead
-
-    while (current != 0) {
-        var next: BlockHeader* = current.next
-        if (next != 0 && long(next) == long(current) + current.size) {
-            current.size = current.size + next.size
-            current.next = next.next
-        } else {
-            current = next
-        }
-    }
 }

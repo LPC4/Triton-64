@@ -24,12 +24,12 @@ public class Linker {
 
     public String link() {
         List<String> imports = findImports(sourceCode);
-
-        if (imports.isEmpty()) {
-            return sourceCode;
-        }
-
         StringBuilder linkedCode = new StringBuilder();
+
+        // Add stdlib
+        imports.add("memory");
+        imports.add("console");
+        imports.add("string");
 
         // Add library code first
         for (String importName : imports) {

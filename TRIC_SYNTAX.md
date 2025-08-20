@@ -111,6 +111,9 @@ Use `@` syntax to assign array literals:
 ```
 var arr: int* = malloc(4 * strideOf(int))
 @arr = [1, 2, 3, 4]  ; assign array literal to memory
+var byteArr: byte* = malloc(4 * strideOf(byte))
+@byteArr = [0xFF, 0xAA, 0xBB, 0xCC]  ; byte array literal
+@byteArr = "abc"  ; string literal as byte array (just a different syntax for a byte array)
 ```
 
 ## Variables and Scope
@@ -264,6 +267,7 @@ func main(): byte {
 4. **Dereferencing**: Always use `@` syntax
 5. **Array access**: Only works with typed pointers (`T*`)
 6. **Structs**: Always use as pointers (`Struct*`)
-7. **No automatic memory management**: Manual malloc/free (if available)
+7. **No automatic memory management**: Manual malloc/free from std
 8. **Function order**: Functions can be defined in any order
 9. **Type defaults**: Everything defaults to `long` if not specified
+10. **Strings**: Treated as byte arrays, use `@` syntax for assignment

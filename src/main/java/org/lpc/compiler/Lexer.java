@@ -46,33 +46,54 @@ public class Lexer {
                 continue;
             }
 
+            // Handle quote modes: collect content until closing quote
             if (mode == Mode.SINGLE_QUOTE || mode == Mode.DOUBLE_QUOTE) {
                 char c = input.charAt(position);
-                currentToken.append(c);
-                position++;
-                if ((mode == Mode.SINGLE_QUOTE && c == '\'') || (mode == Mode.DOUBLE_QUOTE && c == '"')) {
+                // Check for closing quote
+                if ((mode == Mode.SINGLE_QUOTE && c == '\'') ||
+                        (mode == Mode.DOUBLE_QUOTE && c == '"')) {
+                    // Add the collected content as a token (even if empty)
+                    tokens.add(currentToken.toString());
+                    currentToken.setLength(0);
+                    // Add the closing quote as a separate token
+                    tokens.add(String.valueOf(c));
                     mode = Mode.NORMAL;
+                    position++;
+                    continue;
+                } else {
+                    // Collect content (including newlines)
+                    currentToken.append(c);
+                    position++;
+                    continue;
                 }
-                continue;
             }
 
-            // Mode.NORMAL
+            // Normal mode processing
             char c = input.charAt(position);
 
+            // Handle opening single quote
             if (c == '\'') {
+                if (!currentToken.isEmpty()) {
+                    addToken(tokens, currentToken);
+                }
+                tokens.add("'");
                 mode = Mode.SINGLE_QUOTE;
-                currentToken.append(c);
                 position++;
                 continue;
             }
 
+            // Handle opening double quote
             if (c == '"') {
+                if (!currentToken.isEmpty()) {
+                    addToken(tokens, currentToken);
+                }
+                tokens.add("\"");
                 mode = Mode.DOUBLE_QUOTE;
-                currentToken.append(c);
                 position++;
                 continue;
             }
 
+            // Skip single-line comments
             if (c == ';') {
                 while (position < input.length() && input.charAt(position) != '\n') {
                     position++;
@@ -80,6 +101,7 @@ public class Lexer {
                 continue;
             }
 
+            // Handle whitespace
             if (Character.isWhitespace(c)) {
                 if (!currentToken.isEmpty()) {
                     addToken(tokens, currentToken);
@@ -97,6 +119,7 @@ public class Lexer {
                 continue;
             }
 
+            // Handle special characters/operators
             if (isSpecialChar(c)) {
                 if (!currentToken.isEmpty()) {
                     addToken(tokens, currentToken);
@@ -106,10 +129,12 @@ public class Lexer {
                 continue;
             }
 
+            // Build normal tokens (identifiers, numbers, etc.)
             currentToken.append(c);
             position++;
         }
 
+        // Add any remaining token
         if (!currentToken.isEmpty()) {
             addToken(tokens, currentToken);
         }

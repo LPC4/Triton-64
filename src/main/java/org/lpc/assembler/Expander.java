@@ -18,7 +18,6 @@ import java.util.stream.Stream;
  * - sp: Stack pointer for safe temporary storage
  */
 public class Expander {
-
     // Instruction encoding constants
     private static final int LDI_MIN_VALUE = -512;
     private static final int LDI_MAX_VALUE = 511;

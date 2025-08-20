@@ -1,0 +1,34 @@
+func main() {
+    ; --- Intro screen ---
+    var introLen: int = strideOf("Welcome to Triton-OS!")
+    var intro: byte* = malloc(introLen)
+    @intro = "Welcome to Triton-OS!"
+    println(intro, introLen)
+
+    var hintLen: int = strideOf("Type a command below:")
+    var hint: byte* = malloc(hintLen)
+    @hint = "Type a command below:"
+    println(hint, hintLen)
+
+    ; --- Command loop ---
+    while (1) {
+        ; Display a simple prompt
+        var promptLen: int = strideOf("> ")
+        var prompt: byte* = malloc(promptLen)
+        @prompt = "> "
+        print(prompt, promptLen)      ; use print (no newline) for prompt
+
+        ; For now we ignore real input parsing, but in the future
+        ; you’d read into a buffer here
+        var dummyLen: int = strideOf("(waiting for input)")
+        var dummy: byte* = malloc(dummyLen)
+        @dummy = "(waiting for input)"
+        println(dummy, dummyLen)
+
+        ; Add a delay loop to avoid spamming instantly
+        var i: int = 0
+        while (i < 1000000) {
+            i = i + 1
+        }
+    }
+}

@@ -1,3 +1,4 @@
+; Console subsystem
 struct ColorChar {
     var ch: byte
     var fg: byte
@@ -5,41 +6,20 @@ struct ColorChar {
     var reserved: byte
 }
 
-global SCREEN_WIDTH: int = 80
-global SCREEN_HEIGHT: int = 30
-global FRAMEBUFFER_BASE: long = 0x20220000
-global console_cursor: int = 0  ; Character index (0 to SCREEN_WIDTH*SCREEN_HEIGHT-1)
+global __SCREEN_WIDTH: int = 80
+global __SCREEN_HEIGHT: int = 30
+global __FRAMEBUFFER_BASE: long = 0x20220000
+global __console_cursor: int = 0
 
-func console_init() {
-    console_cursor = 0
-    console_clear()
-}
-
-func console_clear() {
-    var i: int = 0
-    var total_chars: int = SCREEN_WIDTH * SCREEN_HEIGHT
-    var fb: long = FRAMEBUFFER_BASE  ; Raw byte address
-
-    while (i < total_chars) {
-        var cell: ColorChar* = ColorChar*(fb + (i * 4))
-        cell.ch = 32    ; space
-        cell.fg = 0xF   ; white
-        cell.bg = 0     ; black
-        cell.reserved = 0
-        i = i + 1
-    }
-    console_cursor = 0
-}
-
-func console_scroll() {
-    var fb: long = FRAMEBUFFER_BASE  ; Raw byte address
+func __console_scroll() {
+    var fb: long = __FRAMEBUFFER_BASE
     var row: int = 0
 
-    while (row < SCREEN_HEIGHT - 1) {
+    while (row < __SCREEN_HEIGHT - 1) {
         var col: int = 0
-        while (col < SCREEN_WIDTH) {
-            var src_index: int = (row + 1) * SCREEN_WIDTH + col
-            var dst_index: int = row * SCREEN_WIDTH + col
+        while (col < __SCREEN_WIDTH) {
+            var src_index: int = (row + 1) * __SCREEN_WIDTH + col
+            var dst_index: int = row * __SCREEN_WIDTH + col
 
             var src: ColorChar* = ColorChar*(fb + (src_index * 4))
             var dst: ColorChar* = ColorChar*(fb + (dst_index * 4))
@@ -55,8 +35,8 @@ func console_scroll() {
     }
 
     var col: int = 0
-    while (col < SCREEN_WIDTH) {
-        var index: int = (SCREEN_HEIGHT - 1) * SCREEN_WIDTH + col
+    while (col < __SCREEN_WIDTH) {
+        var index: int = (__SCREEN_HEIGHT - 1) * __SCREEN_WIDTH + col
         var cell: ColorChar* = ColorChar*(fb + (index * 4))
         cell.ch = 32
         cell.fg = 0xF
@@ -66,32 +46,62 @@ func console_scroll() {
     }
 }
 
-func console_putc(char: byte) {
-    var fb: long = FRAMEBUFFER_BASE  ; Raw byte address
+func console_init() {
+    __console_cursor = 0
+    console_clear()
+}
 
-    if (char == 10) { ; newline
-        var row: int = console_cursor / SCREEN_WIDTH
-        if (row >= SCREEN_HEIGHT - 1) {
-            console_scroll()
-            console_cursor = (SCREEN_HEIGHT - 1) * SCREEN_WIDTH
+func console_clear() {
+    var i: int = 0
+    var total_chars: int = __SCREEN_WIDTH * __SCREEN_HEIGHT
+    var fb: long = __FRAMEBUFFER_BASE
+
+    while (i < total_chars) {
+        var cell: ColorChar* = ColorChar*(fb + (i * 4))
+        cell.ch = 32
+        cell.fg = 0xF
+        cell.bg = 0
+        cell.reserved = 0
+        i = i + 1
+    }
+    __console_cursor = 0
+}
+
+func console_backspace() {
+    if (__console_cursor > 0) {
+        __console_cursor = __console_cursor - 1
+        var fb: long = __FRAMEBUFFER_BASE + (__console_cursor * 4)
+        var cell: ColorChar* = ColorChar*(fb)
+        cell.ch = 32  ; Replace with space character
+    }
+}
+
+func console_putc(char: byte) {
+    var fb: long = __FRAMEBUFFER_BASE
+
+    if (char == 10) {
+        var row: int = __console_cursor / __SCREEN_WIDTH
+        if (row >= __SCREEN_HEIGHT - 1) {
+            __console_scroll()
+            __console_cursor = (__SCREEN_HEIGHT - 1) * __SCREEN_WIDTH
         } else {
-            console_cursor = (row + 1) * SCREEN_WIDTH
+            __console_cursor = (row + 1) * __SCREEN_WIDTH
         }
         return
     }
 
-    if (console_cursor >= SCREEN_WIDTH * SCREEN_HEIGHT) {
-        console_scroll()
-        console_cursor = (SCREEN_HEIGHT - 1) * SCREEN_WIDTH
+    if (__console_cursor >= __SCREEN_WIDTH * __SCREEN_HEIGHT) {
+        __console_scroll()
+        __console_cursor = (__SCREEN_HEIGHT - 1) * __SCREEN_WIDTH
     }
 
-    var cell: ColorChar* = ColorChar*(fb + (console_cursor * 4))
+    var cell: ColorChar* = ColorChar*(fb + (__console_cursor * 4))
     cell.ch = char
     cell.fg = 0xF
     cell.bg = 0
     cell.reserved = 0
 
-    console_cursor = console_cursor + 1
+    __console_cursor = __console_cursor + 1
 }
 
 func console_puts(str: long, len: int) {
