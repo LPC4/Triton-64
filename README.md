@@ -17,7 +17,7 @@ The Triton-64 VM is a comprehensive virtual machine system that includes:
 
 ![Example](examples/example.png)
 ![Framebuffer](examples/test_charbuffer.gif)
-![Malloc](examples/test_malloc.gif)
+![Shell](examples/example_os.png)
 
 ## Architecture
 

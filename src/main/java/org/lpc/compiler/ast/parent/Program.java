@@ -1,6 +1,7 @@
 package org.lpc.compiler.ast.parent;
 
 import lombok.Getter;
+import lombok.Setter;
 import org.lpc.compiler.ast.AstNode;
 import org.lpc.compiler.ast.AstVisitor;
 import org.lpc.compiler.ast.statements.GlobalDeclaration;
@@ -8,10 +9,11 @@ import org.lpc.compiler.ast.statements.GlobalDeclaration;
 import java.util.List;
 
 @Getter
+@Setter // mutable for macros
 public class Program implements AstNode {
-    private final List<GlobalDeclaration> globals;
-    private final List<FunctionDef> functions;
-    private final List<StructDef> structs;
+    private List<GlobalDeclaration> globals;
+    private List<FunctionDef> functions;
+    private List<StructDef> structs;
 
     public Program(List<GlobalDeclaration> globals, List<FunctionDef> functions, List<StructDef> structs) {
         this.globals = globals;

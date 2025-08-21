@@ -20,7 +20,7 @@ public class TypeResolver implements AstVisitor<Type> {
 
     @Override
     public Type visit(ArrayLiteral arrayLiteral) {
-        return arrayLiteral.getType();
+        return new PointerType(arrayLiteral.getType());
     }
 
     @Override

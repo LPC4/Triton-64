@@ -290,7 +290,7 @@ public class Parser {
         return new GlobalDeclaration(name, initializer, type);
     }
 
-    private Statement parseDeclaration() {
+    private List<Statement> parseDeclaration() {
         String name = consume();
 
         // Typed
@@ -299,23 +299,60 @@ public class Parser {
             type = parseVariableType();
         }
 
-        Expression initializer;
+        Expression initializer = null;
         if (match("=")) {
             initializer = parseExpression(type);
-        } else {
-            initializer = createLiteral(0, type);
         }
 
         // If still null, determine type from initializer
         if (type == null) {
-            type = Type.getExpressionType(initializer) != null
-                    ? Type.getExpressionType(initializer)
-                    : PrimitiveType.LONG; // Default to LONG if no type specified in initializer
+            if (initializer != null) {
+                type = Type.getExpressionType(initializer);
+            }
+            if (type == null) {
+                type = PrimitiveType.LONG; // Default to LONG if no type specified
+            }
+        }
+
+        // Check for macro: var x: T* = [array-literal]
+        if (type.isPtr() && initializer instanceof ArrayLiteral) {
+            // Get pointer element type
+            PointerType ptrType = (PointerType) type;
+            Type elementType = ptrType.getElementType();
+
+            // Calculate size for malloc
+            int elementSize = elementType.getSize();
+            int arraySize = ((ArrayLiteral) initializer).getElements().size();
+            int mallocSize = elementSize * arraySize;
+
+            // Create malloc call (returns PrimitiveType.LONG)
+            Expression mallocCall = new FunctionCall(
+                    "malloc",
+                    List.of(Literal.ofInt(mallocSize)),
+                    PrimitiveType.LONG
+            );
+
+            // Create the malloc declaration
+            Statement mallocStmt = new Declaration(name, mallocCall, type);
+
+            // Create the array assignment: @x = [...]
+            Statement arrayAssign = new AssignmentStatement(
+                    new Dereference(new Variable(name, type), elementType),
+                    initializer
+            );
+
+            // Return both statements wrapped in a BlockStatement
+            return List.of(mallocStmt, arrayAssign);
+        }
+
+        // No macro expansion needed
+        if (initializer == null) {
+            initializer = createLiteral(0, type);
         }
 
         // Add to symbol table
         symbolTable.define(name, type);
-        return new Declaration(name, initializer, type);
+        return List.of(new Declaration(name, initializer, type));
     }
 
     private FunctionDef parseFunctionSignature() {
@@ -348,20 +385,20 @@ public class Parser {
         symbolTable.enterScope();
         List<Statement> statements = new ArrayList<>();
         while (!check("}") && !isAtEnd()) {
-            statements.add(parseStatement());
+            statements.addAll(parseStatement());
         }
         consume("}");
         symbolTable.exitScope();
         return statements;
     }
 
-    private Statement parseStatement() {
-        if (match("if")) return parseIfStatement();
-        if (match("return")) return parseReturnStatement();
-        if (match("while")) return parseWhileStatement();
+    private List<Statement> parseStatement() {
+        if (match("if")) return List.of(parseIfStatement());
+        if (match("return")) return List.of(parseReturnStatement());
+        if (match("while")) return List.of(parseWhileStatement());
         if (match("var")) return parseDeclaration();
-        if (match("asm")) return parseAsmStatement();
-        return parseAssignmentOrExpressionStatement();
+        if (match("asm")) return List.of(parseAsmStatement());
+        return List.of(parseAssignmentOrExpressionStatement());
     }
 
     private Statement parseAssignmentOrExpressionStatement() {
@@ -637,9 +674,10 @@ public class Parser {
             }
             throw new RuntimeException("Invalid hex literal: " + hexValue);
         }
-        if (checkTokenIsCharLiteral()) {
+        if (match("'")) {
             String charToken = consume();
             long charValue = parseCharLiteral(charToken);
+            consume("'");
             return createLiteral(charValue, expectedType);
         }
         if (match("\"")) {
@@ -780,16 +818,15 @@ public class Parser {
     }
 
     private long parseCharLiteral(String charToken) {
-        if (charToken.length() < 3 || !charToken.startsWith("'") || !charToken.endsWith("'")) {
+        if (charToken.isEmpty()) {
             throw new RuntimeException("Invalid character literal: " + charToken);
         }
-        String content = charToken.substring(1, charToken.length() - 1);
         // Handle escape sequences
-        if (content.startsWith("\\")) {
-            if (content.length() == 1) {
+        if (charToken.startsWith("\\")) {
+            if (charToken.length() == 1) {
                 throw new RuntimeException("Incomplete escape sequence in character literal: " + charToken);
             }
-            char escapeChar = content.charAt(1);
+            char escapeChar = charToken.charAt(1);
             switch (escapeChar) {
                 case 'n': return '\n';
                 case 't': return '\t';
@@ -802,11 +839,11 @@ public class Parser {
                 case '0': return '\0';
                 case 'x': case 'X':
                     // Hexadecimal escape sequence
-                    if (content.length() != 4) {
+                    if (charToken.length() != 4) {
                         throw new RuntimeException("Invalid hex escape sequence in character literal: " + charToken);
                     }
                     try {
-                        return Integer.parseInt(content.substring(2), 16);
+                        return Integer.parseInt(charToken.substring(2), 16);
                     } catch (NumberFormatException e) {
                         throw new RuntimeException("Invalid hex digits in character literal: " + charToken);
                     }
@@ -814,8 +851,8 @@ public class Parser {
                     // Octal escape sequence
                     if (Character.isDigit(escapeChar)) {
                         StringBuilder octalStr = new StringBuilder();
-                        for (int i = 1; i < content.length() && i < 4; i++) {
-                            char c = content.charAt(i);
+                        for (int i = 1; i < charToken.length() && i < 4; i++) {
+                            char c = charToken.charAt(i);
                             if (c >= '0' && c <= '7') {
                                 octalStr.append(c);
                             } else {
@@ -835,10 +872,10 @@ public class Parser {
             }
         } else {
             // Regular character
-            if (content.length() != 1) {
+            if (charToken.length() != 1) {
                 throw new RuntimeException("Character literal must contain exactly one character: " + charToken);
             }
-            return content.charAt(0);
+            return charToken.charAt(0);
         }
     }
 

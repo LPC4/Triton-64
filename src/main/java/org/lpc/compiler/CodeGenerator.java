@@ -39,10 +39,10 @@ public final class CodeGenerator implements AstVisitor<String> {
     private final StatementGenerator statementGenerator;
     private final ExpressionGenerator expressionGenerator;
 
-    public CodeGenerator(final Parser parser) {
-        Objects.requireNonNull(parser, "Parser cannot be null");
+    public CodeGenerator(TypeChecker typeChecker) {
+        Objects.requireNonNull(typeChecker, "Parser cannot be null");
 
-        this.program = parser.parse();
+        this.program = typeChecker.checkTypes();
         this.context = new ContextManager();
         this.emitter = new InstructionGenerator(context);
 

@@ -1,6 +1,3 @@
-import console
-import memory
-
 func get_last_digit(num) {
     ; Get last digit of a number without modulo
     var tens = num / 10

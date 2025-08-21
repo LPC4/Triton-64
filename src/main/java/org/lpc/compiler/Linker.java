@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
 /**
  * Very simple linker class that just concats the code of all files
  * not really a linker in the traditional sense, but serves the purpose
+ * adding a real one would require .object files and a lot more complexity
  */
 public class Linker {
     private final String sourceCode;
